@@ -13,13 +13,20 @@ function SessionStopped({ startSession }) {
   }
 
   return (
-    <div className="flex items-center justify-center w-full h-full">
+    <div className="flex items-center justify-center w-full h-full p-4">
       <Button
         onClick={handleStartSession}
-        className={isActivating ? "bg-gray-600" : "bg-red-600"}
+        className={`${isActivating ? "bg-gray-600" : "bg-red-600"} w-full md:w-auto`}
         icon={<CloudLightning height={16} />}
       >
-        {isActivating ? "starting session..." : "start session"}
+        {isActivating ? (
+          <span>연결 중...</span>
+        ) : (
+          <>
+            <span className="hidden md:inline">start session</span>
+            <span className="md:hidden">시작하기</span>
+          </>
+        )}
       </Button>
     </div>
   );
