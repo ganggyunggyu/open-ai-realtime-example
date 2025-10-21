@@ -152,19 +152,34 @@ export default function App() {
       <main className="flex flex-col md:flex-row h-[calc(100vh-4rem)]">
         {/* 왼쪽: EventLog + Controls */}
         <section className="flex-1 flex flex-col h-full">
-          <section className="flex-1 px-2 md:px-4 py-2 overflow-y-auto">
-            <EventLog events={events} />
-          </section>
-          <section className="h-28 md:h-32 p-2 md:p-4 border-t border-gray-200">
-            <SessionControls
-              startSession={startSession}
-              stopSession={stopSession}
-              sendClientEvent={sendClientEvent}
-              sendTextMessage={sendTextMessage}
-              events={events}
-              isSessionActive={isSessionActive}
-            />
-          </section>
+          {isSessionActive ? (
+            <>
+              <section className="flex-1 px-2 md:px-4 py-2 overflow-y-auto">
+                <EventLog events={events} />
+              </section>
+              <section className="h-28 md:h-32 p-2 md:p-4 border-t border-gray-200">
+                <SessionControls
+                  startSession={startSession}
+                  stopSession={stopSession}
+                  sendClientEvent={sendClientEvent}
+                  sendTextMessage={sendTextMessage}
+                  events={events}
+                  isSessionActive={isSessionActive}
+                />
+              </section>
+            </>
+          ) : (
+            <section className="flex items-center justify-center h-full">
+              <SessionControls
+                startSession={startSession}
+                stopSession={stopSession}
+                sendClientEvent={sendClientEvent}
+                sendTextMessage={sendTextMessage}
+                events={events}
+                isSessionActive={isSessionActive}
+              />
+            </section>
+          )}
         </section>
 
         {/* 오른쪽: ToolPanel (태블릿 이상에서만 표시) */}
