@@ -143,18 +143,19 @@ export default function App() {
 
   return (
     <>
-      <nav className="absolute top-0 left-0 right-0 h-16 flex items-center">
-        <div className="flex items-center gap-4 w-full m-4 pb-2 border-0 border-b border-solid border-gray-200">
-          <img style={{ width: "24px" }} src={logo} />
-          <h1>realtime console</h1>
+      <nav className="h-16 flex items-center px-4 border-b border-gray-200">
+        <div className="flex items-center gap-2 md:gap-4 w-full">
+          <img className="w-6 h-6" src={logo} alt="logo" />
+          <h1 className="text-lg md:text-xl font-semibold">사라도령</h1>
         </div>
       </nav>
-      <main className="absolute top-16 left-0 right-0 bottom-0">
-        <section className="absolute top-0 left-0 right-[380px] bottom-0 flex">
-          <section className="absolute top-0 left-0 right-0 bottom-32 px-4 overflow-y-auto">
+      <main className="flex flex-col md:flex-row h-[calc(100vh-4rem)]">
+        {/* 왼쪽: EventLog + Controls */}
+        <section className="flex-1 flex flex-col h-full">
+          <section className="flex-1 px-2 md:px-4 py-2 overflow-y-auto">
             <EventLog events={events} />
           </section>
-          <section className="absolute h-32 left-0 right-0 bottom-0 p-4">
+          <section className="h-28 md:h-32 p-2 md:p-4 border-t border-gray-200">
             <SessionControls
               startSession={startSession}
               stopSession={stopSession}
@@ -165,7 +166,9 @@ export default function App() {
             />
           </section>
         </section>
-        <section className="absolute top-0 w-[380px] right-0 bottom-0 p-4 pt-0 overflow-y-auto">
+
+        {/* 오른쪽: ToolPanel (태블릿 이상에서만 표시) */}
+        <section className="hidden md:block w-80 lg:w-96 p-4 border-l border-gray-200 overflow-y-auto">
           <ToolPanel
             sendClientEvent={sendClientEvent}
             sendTextMessage={sendTextMessage}

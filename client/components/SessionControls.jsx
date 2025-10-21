@@ -34,7 +34,7 @@ function SessionActive({ stopSession, sendTextMessage }) {
   }
 
   return (
-    <div className="flex items-center justify-center w-full h-full gap-4">
+    <div className="flex flex-col md:flex-row items-center justify-center w-full h-full gap-2 md:gap-4">
       <input
         onKeyDown={(e) => {
           if (e.key === "Enter" && message.trim()) {
@@ -42,25 +42,33 @@ function SessionActive({ stopSession, sendTextMessage }) {
           }
         }}
         type="text"
-        placeholder="send a text message..."
-        className="border border-gray-200 rounded-full p-4 flex-1"
+        placeholder="메시지 입력..."
+        className="border border-gray-200 rounded-full px-4 py-2 md:py-3 flex-1 w-full text-sm md:text-base"
         value={message}
         onChange={(e) => setMessage(e.target.value)}
       />
-      <Button
-        onClick={() => {
-          if (message.trim()) {
-            handleSendClientEvent();
-          }
-        }}
-        icon={<MessageSquare height={16} />}
-        className="bg-blue-400"
-      >
-        send text
-      </Button>
-      <Button onClick={stopSession} icon={<CloudOff height={16} />}>
-        disconnect
-      </Button>
+      <div className="flex gap-2 w-full md:w-auto">
+        <Button
+          onClick={() => {
+            if (message.trim()) {
+              handleSendClientEvent();
+            }
+          }}
+          icon={<MessageSquare height={16} />}
+          className="bg-blue-400 flex-1 md:flex-initial text-xs md:text-sm"
+        >
+          <span className="hidden md:inline">send text</span>
+          <span className="md:hidden">전송</span>
+        </Button>
+        <Button
+          onClick={stopSession}
+          icon={<CloudOff height={16} />}
+          className="flex-1 md:flex-initial text-xs md:text-sm"
+        >
+          <span className="hidden md:inline">disconnect</span>
+          <span className="md:hidden">종료</span>
+        </Button>
+      </div>
     </div>
   );
 }
@@ -74,7 +82,7 @@ export default function SessionControls({
   isSessionActive,
 }) {
   return (
-    <div className="flex gap-4 border-t-2 border-gray-200 h-full rounded-md">
+    <div className="h-full w-full">
       {isSessionActive ? (
         <SessionActive
           stopSession={stopSession}
