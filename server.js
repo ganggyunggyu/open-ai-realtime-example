@@ -33,7 +33,7 @@ const sessionConfig = JSON.stringify({
     model: 'gpt-realtime',
     audio: {
       output: {
-        voice: 'marin',
+        voice: 'cedar',
       },
     },
     instructions: `# 시스템 역할
