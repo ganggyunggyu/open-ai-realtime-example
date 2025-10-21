@@ -2,8 +2,8 @@
   "type": "module",
   "scripts": {
     "dev": "nodemon server.js --dev",
-    "start": "node server.js",
-    "build": "npm run build:client && npm run build:server",
+    "start": "NODE_ENV=production node server.js",
+    "build": "vite build --outDir dist/client",
     "build:client": "vite build --outDir dist/client --ssrManifest",
     "build:server": "vite build --outDir dist/server --ssr /index.js",
     "devinstall": "zx ../../devinstall.mjs -- node server.js --dev",

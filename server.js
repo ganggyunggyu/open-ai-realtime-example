@@ -2,18 +2,30 @@ import express from 'express';
 import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
 import 'dotenv/config';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const app = express();
 app.use(express.text());
 const port = process.env.PORT || 2000;
 const apiKey = process.env.OPENAI_API_KEY;
+const isProduction = process.env.NODE_ENV === 'production';
 
-// Configure Vite middleware for React client
-const vite = await createViteServer({
-  server: { middlewareMode: true },
-  appType: 'custom',
-});
-app.use(vite.middlewares);
+let vite;
+if (!isProduction) {
+  // 개발 환경: Vite 미들웨어 사용
+  vite = await createViteServer({
+    server: { middlewareMode: true },
+    appType: 'custom',
+  });
+  app.use(vite.middlewares);
+} else {
+  // 프로덕션 환경: 빌드된 정적 파일 서빙
+  app.use(express.static(join(__dirname, 'dist/client')));
+}
 
 const sessionConfig = JSON.stringify({
   session: {
@@ -112,16 +124,24 @@ app.use('*', async (req, res, next) => {
   const url = req.originalUrl;
 
   try {
-    const template = await vite.transformIndexHtml(
-      url,
-      fs.readFileSync('./client/index.html', 'utf-8')
-    );
-    const { render } = await vite.ssrLoadModule('./client/entry-server.jsx');
-    const appHtml = await render(url);
-    const html = template.replace(`<!--ssr-outlet-->`, appHtml?.html);
-    res.status(200).set({ 'Content-Type': 'text/html' }).end(html);
+    if (!isProduction) {
+      // 개발 환경: SSR with Vite
+      const template = await vite.transformIndexHtml(
+        url,
+        fs.readFileSync('./client/index.html', 'utf-8')
+      );
+      const { render } = await vite.ssrLoadModule('./client/entry-server.jsx');
+      const appHtml = await render(url);
+      const html = template.replace(`<!--ssr-outlet-->`, appHtml?.html);
+      res.status(200).set({ 'Content-Type': 'text/html' }).end(html);
+    } else {
+      // 프로덕션 환경: 빌드된 index.html 제공
+      res.sendFile(join(__dirname, 'dist/client/index.html'));
+    }
   } catch (e) {
-    vite.ssrFixStacktrace(e);
+    if (!isProduction) {
+      vite.ssrFixStacktrace(e);
+    }
     next(e);
   }
 });
