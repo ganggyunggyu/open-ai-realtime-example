@@ -1,5 +1,5 @@
-import { ArrowUp, ArrowDown } from "react-feather";
-import { useState } from "react";
+import { ArrowUp, ArrowDown, MessageSquare, Volume2, Activity } from "react-feather";
+import { useMemo, useState } from "react";
 
 function extractTextContent(event) {
   // response.done에서 transcript 추출
@@ -50,8 +50,13 @@ function Event({ event, timestamp }) {
         </div>
       </div>
       {textContent && (
-        <div className="text-sm px-2 py-1 bg-white rounded border-l-2 border-gray-400">
-          {isClient ? "📝" : "💬"} {textContent}
+        <div className="text-sm px-2 py-1 bg-white rounded border-l-2 border-gray-400 flex items-center gap-2">
+          {isClient ? (
+            <MessageSquare size={14} className="text-blue-500" />
+          ) : (
+            <Volume2 size={14} className="text-green-500" />
+          )}
+          <span>{textContent}</span>
         </div>
       )}
       <div
@@ -66,19 +71,36 @@ function Event({ event, timestamp }) {
 }
 
 export default function EventLog({ events }) {
-  const eventsToDisplay = [];
-  let deltaEvents = {};
+  const [messagesOnly, setMessagesOnly] = useState(true);
 
-  events.forEach((event) => {
-    if (event.type.endsWith("delta")) {
-      if (deltaEvents[event.type]) {
-        // for now just log a single event per render pass
-        return;
-      } else {
-        deltaEvents[event.type] = event;
+  const filtered = useMemo(() => {
+    if (!events || events.length === 0) return [];
+    if (!messagesOnly) return events;
+
+    const list = [];
+    for (const ev of events) {
+      if (ev.type === "conversation.item.create") {
+        list.push(ev);
+        continue;
       }
+      if (ev.type === "response.done") {
+        // 우선순위: response.done 한 건만 채택
+        list.push(ev);
+        continue;
+      }
+      // 그 외 서버 이벤트는 messagesOnly일 땐 숨김
     }
+    return list;
+  }, [events, messagesOnly]);
 
+  const eventsToDisplay = [];
+  const deltaSeen = {};
+
+  filtered.forEach((event) => {
+    if (event?.type?.endsWith("delta")) {
+      if (deltaSeen[event.type]) return;
+      deltaSeen[event.type] = true;
+    }
     eventsToDisplay.push(
       <Event key={event.event_id} event={event} timestamp={event.timestamp} />,
     );
@@ -86,7 +108,34 @@ export default function EventLog({ events }) {
 
   return (
     <div className="flex flex-col gap-2 overflow-x-auto">
-      {events.length === 0 ? (
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2 text-sm text-gray-600">
+          <Activity size={14} />
+          <span>{messagesOnly ? "Messages view" : "All events"}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className={`text-xs px-2 py-1 rounded border ${
+              messagesOnly ? "bg-gray-800 text-white" : "bg-white"
+            }`}
+            onClick={() => setMessagesOnly(true)}
+          >
+            Messages
+          </button>
+          <button
+            type="button"
+            className={`text-xs px-2 py-1 rounded border ${
+              !messagesOnly ? "bg-gray-800 text-white" : "bg-white"
+            }`}
+            onClick={() => setMessagesOnly(false)}
+          >
+            All
+          </button>
+        </div>
+      </div>
+
+      {filtered.length === 0 ? (
         <div className="text-gray-500">Awaiting events...</div>
       ) : (
         eventsToDisplay
