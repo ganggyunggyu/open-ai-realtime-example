@@ -130,13 +130,13 @@ export default function App() {
       const minute = now.getMinutes();
 
       // 08:00 자동 접속
-      if (hour === 19 && minute === 44 && !isSessionActive) {
+      if (hour === 7 && minute === 59 && !isSessionActive) {
         console.log('⏰ 08:00 자동 접속 시작');
         startSession();
       }
 
       // 18:00 자동 종료
-      if (hour === 19 && minute === 45 && isSessionActive) {
+      if (hour === 18 && minute === 1 && isSessionActive) {
         console.log('⏰ 18:00 자동 종료');
         stopSession();
       }
