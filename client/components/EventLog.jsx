@@ -24,6 +24,11 @@ function extractTextContent(event) {
     return event.transcript;
   }
 
+  // output_audio_buffer.stopped - AI 음성 종료 표시
+  if (event.type === "output_audio_buffer.stopped") {
+    return "🔴 AI 음성 종료";
+  }
+
   return null;
 }
 
@@ -85,6 +90,10 @@ export default function EventLog({ events }) {
       }
       if (ev.type === "response.done") {
         // 우선순위: response.done 한 건만 채택
+        list.push(ev);
+        continue;
+      }
+      if (ev.type === "output_audio_buffer.stopped") {
         list.push(ev);
         continue;
       }

@@ -32,11 +32,12 @@ function SessionStopped({ startSession }) {
   );
 }
 
-function SessionActive({ stopSession, sendTextMessage }) {
+function SessionActive({ stopSession, sendTextMessage, isAISpeaking }) {
   const [message, setMessage] = useState("");
   const [isComposing, setIsComposing] = useState(false);
 
   function handleSendClientEvent() {
+    if (isAISpeaking) return;
     sendTextMessage(message);
     setMessage("");
   }
@@ -48,28 +49,30 @@ function SessionActive({ stopSession, sendTextMessage }) {
           const composing = e.isComposing || (e.nativeEvent && e.nativeEvent.isComposing) || isComposing;
           if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
-            if (!composing && message.trim()) {
+            if (!composing && message.trim() && !isAISpeaking) {
               handleSendClientEvent();
             }
           }
         }}
         type="text"
-        placeholder="메시지 입력..."
-        className="border border-gray-200 rounded-full px-4 py-2 md:py-3 flex-1 w-full text-sm md:text-base"
+        placeholder={isAISpeaking ? "AI가 말하는 중..." : "메시지 입력..."}
+        className="border border-gray-200 rounded-full px-4 py-2 md:py-3 flex-1 w-full text-sm md:text-base disabled:bg-gray-100 disabled:cursor-not-allowed"
         value={message}
         onChange={(e) => setMessage(e.target.value)}
         onCompositionStart={() => setIsComposing(true)}
         onCompositionEnd={() => setIsComposing(false)}
+        disabled={isAISpeaking}
       />
       <div className="flex gap-2 w-full md:w-auto">
         <Button
           onClick={() => {
-            if (message.trim()) {
+            if (message.trim() && !isAISpeaking) {
               handleSendClientEvent();
             }
           }}
           icon={<MessageSquare height={16} />}
           className="bg-blue-400 flex-1 md:flex-initial text-xs md:text-sm"
+          disabled={isAISpeaking}
         >
           <span className="hidden md:inline">send text</span>
           <span className="md:hidden">전송</span>
@@ -94,6 +97,7 @@ export default function SessionControls({
   sendTextMessage,
   serverEvents,
   isSessionActive,
+  isAISpeaking,
 }) {
   return (
     <div className="h-full w-full">
@@ -103,6 +107,7 @@ export default function SessionControls({
           sendClientEvent={sendClientEvent}
           sendTextMessage={sendTextMessage}
           serverEvents={serverEvents}
+          isAISpeaking={isAISpeaking}
         />
       ) : (
         <SessionStopped startSession={startSession} />

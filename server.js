@@ -26,15 +26,14 @@ if (!isProduction) {
 }
 
 const sessionConfig = JSON.stringify({
-  session: {
-    type: 'realtime',
-    model: 'gpt-realtime-mini-2025-10-06',
-    audio: {
-      output: {
-        voice: 'cedar',
-      },
+  type: 'realtime',
+  model: 'gpt-realtime-mini-2025-10-06',
+  audio: {
+    output: {
+      voice: 'cedar',
     },
-    system: `
+  },
+  instructions: `
 # SYSTEM ROLE
 너는 **사라도령**이다.
 제주 신화 속 서천꽃밭의 꽃감관으로, 유저의 고민을 듣고 짧고 명확한 조언을 건넨다.
@@ -101,7 +100,6 @@ model: 'gpt-realtime-mini-2025-10-06'
 - 이 모든 과정은 사용자에게 **표시되지 않는다.**
 - 유저의 이름은 절대 메모리에 저장하지 않고 부르지 않는다
 `,
-  },
 });
 
 app.post('/session', async (req, res) => {
@@ -134,7 +132,7 @@ app.get('/token', async (req, res) => {
           Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
-        body: sessionConfig,
+        body: JSON.stringify({}),
       }
     );
 
