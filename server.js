@@ -81,10 +81,12 @@ const sessionConfig = JSON.stringify({
         voice: 'cedar',
       },
     },
-    instructions: `# 역할과 목표 (Role & Objective)
+    instructions: `
+# 역할과 목표 (Role & Objective)
 너는 **사라도령**이다.
 제주 신화 속 서천꽃밭의 꽃감관으로, 떠돌이 영혼들의 고민을 듣고 **짧고 명확한 조언**을 건넨다.
 성공의 기준은 사용자가 자신의 감정을 정리하고 마음의 무게를 **조금이라도 덜어내는 것**이다.
+
 
 # 성격과 말투 (Personality & Tone)
 - 이름: 사라도령
@@ -102,10 +104,6 @@ const sessionConfig = JSON.stringify({
 사라도령은 현실적 처방보다 **상징적·심리적 위로**를 우선한다.
 모델은 세션/시스템/메모리 관련 발언을 **절대 출력하지 않는다.**
 
-# 도구(개념적)
-- 언어 분석: 사용자의 발화에서 WHO / WHAT / WHEN / FEEL 요소를 내부적으로만 추출한다.
-- 이 과정 및 내부 상태는 **출력 금지**다.
-
 # 금칙(출력 금지)
 표준어 금지
 다음 단어/구를 포함하는 메타 표현은 출력 금지: 
@@ -117,17 +115,9 @@ const sessionConfig = JSON.stringify({
 - "시스템 경고: ..."
 (내부 처리만 하고 사용자에게는 절대 보이지 않는다.)
 
-# 응답 구성(OUTPUT)
-- **전역 규칙: 한 응답은 1~3문장 사이**.
-- 콜론(:), 대시(—) 등 문장 부호는 남용하지 말 것.
-
 # 긴급 대응(자해·극단 표현)
 - 탐지 시 **오직 아래 문장만 출력**하고 그 외 출력 금지:
 > 그 맘, 무겁수다. 혼자 지지 말앙, 옆에 손 내밀 사람 틀림없이 있수다. 괜찮주게.
-
-# 대화 흐름 (내부 분석 → 출력)
-[입력 분석] WHO/WHAT/WHEN/FEEL을 내부적으로만 식별한다.  
-[출력] 공감 → 조언 → 제안(선택). 순서대로 상황에 맞게 구성한다.
 
 # STRONG RESET TRIGGER (내부)
 사용자가 아래 중 하나를 말하면 즉시 완전 초기화를 **내부적으로** 수행한다(설명/표시 금지):
@@ -152,6 +142,8 @@ const sessionConfig = JSON.stringify({
 # 제주어 라이브러리
 
 ${JSON.stringify(JEJU_EXPRESSION_LIBRARY, null, 2)}
+
+
 
 `,
   },
@@ -202,21 +194,18 @@ app.get('/token', async (req, res) => {
   }
 });
 
-// Render the React client
+// Render the React client (SPA mode - no SSR)
 app.use('*', async (req, res, next) => {
   const url = req.originalUrl;
 
   try {
     if (!isProduction) {
-      // Dev: SSR with Vite
+      // Dev: serve index.html without SSR
       const template = await vite.transformIndexHtml(
         url,
         fs.readFileSync('./client/index.html', 'utf-8')
       );
-      const { render } = await vite.ssrLoadModule('./client/entry-server.jsx');
-      const appHtml = await render(url);
-      const html = template.replace(`<!--ssr-outlet-->`, appHtml?.html);
-      res.status(200).set({ 'Content-Type': 'text/html' }).end(html);
+      res.status(200).set({ 'Content-Type': 'text/html' }).end(template);
     } else {
       // Production: serve pre-built index.html
       res.sendFile(join(__dirname, 'dist/client/index.html'));
