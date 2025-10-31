@@ -2,18 +2,30 @@ import express from 'express';
 import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
 import 'dotenv/config';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const app = express();
 app.use(express.text());
 const port = process.env.PORT || 2000;
 const apiKey = process.env.OPENAI_API_KEY;
+const isProduction = process.env.NODE_ENV === 'production';
 
-// Configure Vite middleware for React client
-const vite = await createViteServer({
-  server: { middlewareMode: true },
-  appType: 'custom',
-});
-app.use(vite.middlewares);
+// Configure Vite middleware for React client (dev only)
+let vite;
+if (!isProduction) {
+  vite = await createViteServer({
+    server: { middlewareMode: true },
+    appType: 'custom',
+  });
+  app.use(vite.middlewares);
+} else {
+  // Production: serve pre-built files
+  app.use(express.static(join(__dirname, 'dist/client')));
+}
 export const JEJU_EXPRESSION_LIBRARY = {
   greeting: [
     { std: '안녕하세요', jeju: '혼저옵서예', nuance: '정중한 환영 인사' },
@@ -195,16 +207,24 @@ app.use('*', async (req, res, next) => {
   const url = req.originalUrl;
 
   try {
-    const template = await vite.transformIndexHtml(
-      url,
-      fs.readFileSync('./client/index.html', 'utf-8')
-    );
-    const { render } = await vite.ssrLoadModule('./client/entry-server.jsx');
-    const appHtml = await render(url);
-    const html = template.replace(`<!--ssr-outlet-->`, appHtml?.html);
-    res.status(200).set({ 'Content-Type': 'text/html' }).end(html);
+    if (!isProduction) {
+      // Dev: SSR with Vite
+      const template = await vite.transformIndexHtml(
+        url,
+        fs.readFileSync('./client/index.html', 'utf-8')
+      );
+      const { render } = await vite.ssrLoadModule('./client/entry-server.jsx');
+      const appHtml = await render(url);
+      const html = template.replace(`<!--ssr-outlet-->`, appHtml?.html);
+      res.status(200).set({ 'Content-Type': 'text/html' }).end(html);
+    } else {
+      // Production: serve pre-built index.html
+      res.sendFile(join(__dirname, 'dist/client/index.html'));
+    }
   } catch (e) {
-    vite.ssrFixStacktrace(e);
+    if (!isProduction && vite) {
+      vite.ssrFixStacktrace(e);
+    }
     next(e);
   }
 });
