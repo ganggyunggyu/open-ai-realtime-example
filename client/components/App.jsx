@@ -11,6 +11,7 @@ export default function App() {
   const [isAISpeaking, setIsAISpeaking] = useState(false);
   const peerConnection = useRef(null);
   const audioElement = useRef(null);
+  const dataChannelRef = useRef(null);
   const reconnectAttempts = useRef(0);
   const manualDisconnect = useRef(false);
   const MAX_RECONNECT_ATTEMPTS = 5;
@@ -37,6 +38,7 @@ export default function App() {
 
     // Set up data channel for sending and receiving events
     const dc = pc.createDataChannel('oai-events');
+    dataChannelRef.current = dc;
     setDataChannel(dc);
 
     // Start the session using the Session Description Protocol (SDP)
@@ -74,8 +76,8 @@ export default function App() {
         if (peerConnection.current) {
           peerConnection.current.close();
         }
-        if (dataChannel) {
-          dataChannel.close();
+        if (dataChannelRef.current) {
+          dataChannelRef.current.close();
         }
 
         // 재연결 (3초 후)
@@ -104,8 +106,8 @@ export default function App() {
     console.log('👋 수동 종료 - 재연결 안함');
     manualDisconnect.current = true;
 
-    if (dataChannel) {
-      dataChannel.close();
+    if (dataChannelRef.current) {
+      dataChannelRef.current.close();
     }
 
     if (peerConnection.current) {
@@ -120,6 +122,7 @@ export default function App() {
     setIsSessionActive(false);
     setIsAISpeaking(false);
     setDataChannel(null);
+    dataChannelRef.current = null;
     peerConnection.current = null;
     reconnectAttempts.current = 0;
   }
