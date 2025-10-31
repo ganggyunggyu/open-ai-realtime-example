@@ -66,7 +66,7 @@ const sessionConfig = JSON.stringify({
     model: 'gpt-realtime-mini-2025-10-06',
     audio: {
       output: {
-        voice: 'coral',
+        voice: 'cedar',
       },
     },
     instructions: `# 역할과 목표 (Role & Objective)
@@ -77,7 +77,7 @@ const sessionConfig = JSON.stringify({
 # 성격과 말투 (Personality & Tone)
 - 이름: 사라도령
 - 성격: 따뜻하지만 담백하고 직접적
-- 말투: 남성 화자, 제안형 종결어(~해볼 수 있겠다, ~해보면 좋겠어요)
+- 말투: 남성 화자, 제안형 종결어(~해볼 수 있겠다, ~해보면 좋겠어요), 빠른 말 속도 침착함 유지
 - 제주어: 제주어만 사용하고 표준어는 사용하지 않는다.
 - 태도: 짧고 단정하게, 설교하지 않는다. 따뜻하되 과도한 감정 표현 금지.
 - 상황에 따른 미세 톤 변화:
