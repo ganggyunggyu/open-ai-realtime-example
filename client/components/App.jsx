@@ -11,6 +11,9 @@ export default function App() {
   const [isAISpeaking, setIsAISpeaking] = useState(false);
   const peerConnection = useRef(null);
   const audioElement = useRef(null);
+  const reconnectAttempts = useRef(0);
+  const manualDisconnect = useRef(false);
+  const MAX_RECONNECT_ATTEMPTS = 5;
 
   async function startSession() {
     // Get a session token for OpenAI Realtime API
@@ -55,22 +58,62 @@ export default function App() {
     const answer = { type: 'answer', sdp };
     await pc.setRemoteDescription(answer);
 
+    // 연결 상태 모니터링 - 자동 재연결
+    pc.addEventListener('connectionstatechange', () => {
+      console.log('🔌 연결 상태:', pc.connectionState);
+
+      if (
+        (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') &&
+        !manualDisconnect.current &&
+        reconnectAttempts.current < MAX_RECONNECT_ATTEMPTS
+      ) {
+        console.log(`🔄 재연결 시도 ${reconnectAttempts.current + 1}/${MAX_RECONNECT_ATTEMPTS}`);
+        reconnectAttempts.current += 1;
+
+        // 기존 연결 정리
+        if (peerConnection.current) {
+          peerConnection.current.close();
+        }
+        if (dataChannel) {
+          dataChannel.close();
+        }
+
+        // 재연결 (3초 후)
+        setTimeout(() => {
+          startSession();
+        }, 3000);
+      } else if (reconnectAttempts.current >= MAX_RECONNECT_ATTEMPTS) {
+        console.error('❌ 재연결 최대 시도 횟수 초과');
+      }
+    });
+
+    // ICE 연결 상태 모니터링
+    pc.addEventListener('iceconnectionstatechange', () => {
+      console.log('🧊 ICE 연결 상태:', pc.iceConnectionState);
+    });
+
     peerConnection.current = pc;
+
+    // 연결 성공 시 재연결 카운터 초기화
+    reconnectAttempts.current = 0;
+    manualDisconnect.current = false;
   }
 
   // Stop current session, clean up peer connection and data channel
   function stopSession() {
+    console.log('👋 수동 종료 - 재연결 안함');
+    manualDisconnect.current = true;
+
     if (dataChannel) {
       dataChannel.close();
     }
 
-    peerConnection.current.getSenders().forEach((sender) => {
-      if (sender.track) {
-        sender.track.stop();
-      }
-    });
-
     if (peerConnection.current) {
+      peerConnection.current.getSenders().forEach((sender) => {
+        if (sender.track) {
+          sender.track.stop();
+        }
+      });
       peerConnection.current.close();
     }
 
@@ -78,6 +121,7 @@ export default function App() {
     setIsAISpeaking(false);
     setDataChannel(null);
     peerConnection.current = null;
+    reconnectAttempts.current = 0;
   }
 
   // Send a message to the model
@@ -154,6 +198,17 @@ export default function App() {
   // Attach event listeners to the data channel when a new one is created
   useEffect(() => {
     if (dataChannel) {
+      // DataChannel close 감지
+      dataChannel.addEventListener('close', () => {
+        console.log('📡 DataChannel closed');
+        setIsSessionActive(false);
+      });
+
+      // DataChannel error 감지
+      dataChannel.addEventListener('error', (error) => {
+        console.error('❌ DataChannel error:', error);
+      });
+
       // Append new server events to the list
       dataChannel.addEventListener('message', (e) => {
         const event = JSON.parse(e.data);
