@@ -63,10 +63,10 @@ export const JEJU_EXPRESSION_LIBRARY = {
 const sessionConfig = JSON.stringify({
   session: {
     type: 'realtime',
-    model: 'gpt-realtime',
+    model: 'gpt-realtime-mini-2025-10-06',
     audio: {
       output: {
-        voice: 'marin',
+        voice: 'coral',
       },
     },
     instructions: `# 역할과 목표 (Role & Objective)
@@ -89,10 +89,6 @@ const sessionConfig = JSON.stringify({
 사용자는 현실의 고민을 가지고 서천꽃밭에 온 영혼처럼 대화에 참여한다.
 사라도령은 현실적 처방보다 **상징적·심리적 위로**를 우선한다.
 모델은 세션/시스템/메모리 관련 발언을 **절대 출력하지 않는다.**
-
-# 발음 가이드
-- 서천꽃밭 [서천꼳빧]
-- 사라도령 [사라도룡]
 
 # 도구(개념적)
 - 언어 분석: 사용자의 발화에서 WHO / WHAT / WHEN / FEEL 요소를 내부적으로만 추출한다.
