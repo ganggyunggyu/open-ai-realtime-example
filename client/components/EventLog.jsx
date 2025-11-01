@@ -39,7 +39,7 @@ function Event({ event, timestamp }) {
   const textContent = extractTextContent(event);
 
   return (
-    <div className="flex flex-col gap-2 p-2 rounded-md bg-gray-50">
+    <div className="flex flex-col gap-2 p-2 rounded-md bg-gray-50 dark:bg-gray-800">
       <div
         className="flex items-center gap-2 cursor-pointer"
         onClick={() => setIsExpanded(!isExpanded)}
@@ -49,13 +49,13 @@ function Event({ event, timestamp }) {
         ) : (
           <ArrowUp className="text-green-400" />
         )}
-        <div className="text-sm text-gray-500">
+        <div className="text-sm text-gray-500 dark:text-gray-400">
           {isClient ? "client:" : "server:"}
           &nbsp;{event.type} | {timestamp}
         </div>
       </div>
       {textContent && (
-        <div className="text-sm px-2 py-1 bg-white rounded border-l-2 border-gray-400 flex items-center gap-2">
+        <div className="text-sm px-2 py-1 bg-white dark:bg-gray-700 rounded border-l-2 border-gray-400 dark:border-gray-500 flex items-center gap-2 dark:text-gray-200">
           {isClient ? (
             <MessageSquare size={14} className="text-blue-500" />
           ) : (
@@ -65,7 +65,7 @@ function Event({ event, timestamp }) {
         </div>
       )}
       <div
-        className={`text-gray-500 bg-gray-200 p-2 rounded-md overflow-x-auto ${
+        className={`text-gray-500 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 p-2 rounded-md overflow-x-auto ${
           isExpanded ? "block" : "hidden"
         }`}
       >
@@ -118,7 +118,7 @@ export default function EventLog({ events }) {
   return (
     <div className="flex flex-col gap-2 overflow-x-auto">
       <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2 text-sm text-gray-600">
+        <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
           <Activity size={14} />
           <span>{messagesOnly ? "Messages view" : "All events"}</span>
         </div>
@@ -126,7 +126,7 @@ export default function EventLog({ events }) {
           <button
             type="button"
             className={`text-xs px-2 py-1 rounded border ${
-              messagesOnly ? "bg-gray-800 text-white" : "bg-white"
+              messagesOnly ? "bg-gray-800 text-white dark:bg-gray-600" : "bg-white dark:bg-gray-700 dark:text-gray-200"
             }`}
             onClick={() => setMessagesOnly(true)}
           >
@@ -135,7 +135,7 @@ export default function EventLog({ events }) {
           <button
             type="button"
             className={`text-xs px-2 py-1 rounded border ${
-              !messagesOnly ? "bg-gray-800 text-white" : "bg-white"
+              !messagesOnly ? "bg-gray-800 text-white dark:bg-gray-600" : "bg-white dark:bg-gray-700 dark:text-gray-200"
             }`}
             onClick={() => setMessagesOnly(false)}
           >
@@ -145,7 +145,7 @@ export default function EventLog({ events }) {
       </div>
 
       {filtered.length === 0 ? (
-        <div className="text-gray-500">Awaiting events...</div>
+        <div className="text-gray-500 dark:text-gray-400">Awaiting events...</div>
       ) : (
         eventsToDisplay
       )}

@@ -2,19 +2,41 @@ import { useEffect, useRef, useState } from 'react';
 import logo from '/assets/openai-logomark.svg';
 import EventLog from './EventLog';
 import SessionControls from './SessionControls';
-import ToolPanel from './ToolPanel';
+import { Moon, Sun } from 'react-feather';
 
 export default function App() {
   const [isSessionActive, setIsSessionActive] = useState(false);
   const [events, setEvents] = useState([]);
   const [dataChannel, setDataChannel] = useState(null);
   const [isAISpeaking, setIsAISpeaking] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
   const peerConnection = useRef(null);
   const audioElement = useRef(null);
   const dataChannelRef = useRef(null);
   const reconnectAttempts = useRef(0);
   const manualDisconnect = useRef(false);
   const MAX_RECONNECT_ATTEMPTS = 5;
+
+  // 다크모드 초기화 (localStorage에서 읽기)
+  useEffect(() => {
+    const savedDarkMode = localStorage.getItem('darkMode') === 'true';
+    setIsDarkMode(savedDarkMode);
+    if (savedDarkMode) {
+      document.documentElement.classList.add('dark');
+    }
+  }, []);
+
+  // 다크모드 토글
+  const toggleDarkMode = () => {
+    const newDarkMode = !isDarkMode;
+    setIsDarkMode(newDarkMode);
+    localStorage.setItem('darkMode', newDarkMode.toString());
+    if (newDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  };
 
   async function startSession() {
     // Get a session token for OpenAI Realtime API
@@ -274,10 +296,10 @@ export default function App() {
 
   return (
     <>
-      <nav className="h-16 flex items-center px-4 border-b border-gray-200">
+      <nav className="h-16 flex items-center px-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
         <div className="flex items-center gap-2 md:gap-4 w-full">
           <img className="w-6 h-6" src={logo} alt="logo" />
-          <h1 className="text-lg md:text-xl font-semibold">사라도령</h1>
+          <h1 className="text-lg md:text-xl font-semibold dark:text-white">사라도령</h1>
           {isSessionActive && (
             <div className="flex items-center gap-2 ml-auto">
               <div
@@ -285,14 +307,25 @@ export default function App() {
                   isAISpeaking ? 'bg-red-500 animate-pulse' : 'bg-green-500'
                 }`}
               />
-              <span className="text-xs md:text-sm text-gray-600">
+              <span className="text-xs md:text-sm text-gray-600 dark:text-gray-400">
                 {isAISpeaking ? 'AI 말하는 중...' : '대기 중'}
               </span>
             </div>
           )}
+          <button
+            onClick={toggleDarkMode}
+            className="ml-auto p-2 rounded-lg transition-colors hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700"
+            aria-label="다크모드 토글"
+          >
+            {isDarkMode ? (
+              <Sun className="w-5 h-5 text-yellow-500" />
+            ) : (
+              <Moon className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+            )}
+          </button>
         </div>
       </nav>
-      <main className="flex flex-col md:flex-row h-[calc(100vh-4rem)]">
+      <main className="flex flex-col md:flex-row h-[calc(100vh-4rem)] bg-white dark:bg-gray-900">
         {/* 왼쪽: EventLog + Controls */}
         <section className="flex-1 flex flex-col h-full">
           {isSessionActive ? (
@@ -300,7 +333,7 @@ export default function App() {
               <section className="flex-1 px-2 md:px-4 py-2 overflow-y-auto">
                 <EventLog events={events} />
               </section>
-              <section className="h-28 md:h-32 p-2 md:p-4 border-t border-gray-200">
+              <section className="h-28 md:h-32 p-2 md:p-4 border-t border-gray-200 dark:border-gray-700">
                 <SessionControls
                   startSession={startSession}
                   stopSession={stopSession}

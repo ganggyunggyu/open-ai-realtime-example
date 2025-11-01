@@ -56,7 +56,7 @@ function SessionActive({ stopSession, sendTextMessage, isAISpeaking }) {
         }}
         type="text"
         placeholder={isAISpeaking ? "AI가 말하는 중..." : "메시지 입력..."}
-        className="border border-gray-200 rounded-full px-4 py-2 md:py-3 flex-1 w-full text-sm md:text-base disabled:bg-gray-100 disabled:cursor-not-allowed"
+        className="border border-gray-200 dark:border-gray-600 rounded-full px-4 py-2 md:py-3 flex-1 w-full text-sm md:text-base bg-white dark:bg-gray-800 dark:text-white disabled:cursor-not-allowed disabled:bg-gray-100 disabled:dark:bg-gray-700"
         value={message}
         onChange={(e) => setMessage(e.target.value)}
         onCompositionStart={() => setIsComposing(true)}
