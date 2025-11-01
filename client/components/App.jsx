@@ -62,14 +62,19 @@ export default function App() {
 
     // 연결 상태 모니터링 - 자동 재연결
     pc.addEventListener('connectionstatechange', () => {
-      console.log('🔌 연결 상태:', pc.connectionState);
+      console.log('[CONNECTION] 연결 상태:', pc.connectionState);
 
       if (
-        (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') &&
+        (pc.connectionState === 'failed' ||
+          pc.connectionState === 'disconnected') &&
         !manualDisconnect.current &&
         reconnectAttempts.current < MAX_RECONNECT_ATTEMPTS
       ) {
-        console.log(`🔄 재연결 시도 ${reconnectAttempts.current + 1}/${MAX_RECONNECT_ATTEMPTS}`);
+        console.log(
+          `[RECONNECT] 재연결 시도 ${
+            reconnectAttempts.current + 1
+          }/${MAX_RECONNECT_ATTEMPTS}`
+        );
         reconnectAttempts.current += 1;
 
         // 기존 연결 정리
@@ -85,13 +90,13 @@ export default function App() {
           startSession();
         }, 3000);
       } else if (reconnectAttempts.current >= MAX_RECONNECT_ATTEMPTS) {
-        console.error('❌ 재연결 최대 시도 횟수 초과');
+        console.error('[ERROR] 재연결 최대 시도 횟수 초과');
       }
     });
 
     // ICE 연결 상태 모니터링
     pc.addEventListener('iceconnectionstatechange', () => {
-      console.log('🧊 ICE 연결 상태:', pc.iceConnectionState);
+      console.log('[ICE] ICE 연결 상태:', pc.iceConnectionState);
     });
 
     peerConnection.current = pc;
@@ -103,7 +108,7 @@ export default function App() {
 
   // Stop current session, clean up peer connection and data channel
   function stopSession() {
-    console.log('👋 수동 종료 - 재연결 안함');
+    console.log('[DISCONNECT] 수동 종료 - 재연결 안함');
     manualDisconnect.current = true;
 
     if (dataChannelRef.current) {
@@ -169,6 +174,18 @@ export default function App() {
     sendClientEvent({ type: 'response.create' });
   }
 
+  // 영업시간 체크 (08:00 ~ 18:00)
+  const isBusinessHours = () => {
+    const now = new Date();
+    const hour = now.getHours();
+    return hour >= 8 && hour < 18;
+  };
+
+  // 연결 상태 변화 감지
+  useEffect(() => {
+    console.log('[SESSION_STATE] 연결 상태 변화:', isSessionActive ? '연결됨' : '연결 끊김');
+  }, [isSessionActive]);
+
   // 자동 접속/종료 스케줄링
   useEffect(() => {
     const checkSchedule = () => {
@@ -176,24 +193,21 @@ export default function App() {
       const hour = now.getHours();
       const minute = now.getMinutes();
 
-      // 08:00 자동 접속
+      // 08:00 자동 접속 (영업시간 시작)
       if (hour === 7 && minute === 59 && !isSessionActive) {
-        console.log('⏰ 08:00 자동 접속 시작');
+        console.log('[SCHEDULE] 08:00 자동 접속 시작');
         startSession();
       }
 
-      // 18:00 자동 종료
+      // 18:00 자동 종료 (영업시간 종료)
       if (hour === 18 && minute === 1 && isSessionActive) {
-        console.log('⏰ 18:00 자동 종료');
+        console.log('[SCHEDULE] 18:00 자동 종료');
         stopSession();
       }
     };
 
     // 1분마다 체크
     const scheduleInterval = setInterval(checkSchedule, 60000);
-
-    // 컴포넌트 마운트 시 즉시 체크
-    checkSchedule();
 
     return () => clearInterval(scheduleInterval);
   }, [isSessionActive]);
@@ -203,13 +217,13 @@ export default function App() {
     if (dataChannel) {
       // DataChannel close 감지
       dataChannel.addEventListener('close', () => {
-        console.log('📡 DataChannel closed');
+        console.log('[DATACHANNEL] DataChannel closed');
         setIsSessionActive(false);
       });
 
       // DataChannel error 감지
       dataChannel.addEventListener('error', (error) => {
-        console.error('❌ DataChannel error:', error);
+        console.error('[ERROR] DataChannel error:', error);
       });
 
       // Append new server events to the list
@@ -221,7 +235,7 @@ export default function App() {
 
         // AI 음성 시작 감지
         if (event.type === 'output_audio_buffer.started') {
-          console.log('🟢 AI 말하기 시작 - 마이크 차단');
+          console.log('[AI_START] AI 말하기 시작 - 마이크 차단');
           setIsAISpeaking(true);
           // 마이크 입력 차단
           if (peerConnection.current) {
@@ -235,7 +249,7 @@ export default function App() {
 
         // AI 음성 종료 감지
         if (event.type === 'output_audio_buffer.stopped') {
-          console.log('🔴 AI 말하기 종료 - 마이크 활성화');
+          console.log('[AI_STOP] AI 말하기 종료 - 마이크 활성화');
           setIsAISpeaking(false);
           // 마이크 입력 재활성화
           if (peerConnection.current) {
