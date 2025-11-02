@@ -121,8 +121,7 @@ const SRAR_PROMPT = `
 - 인사에만 인삿말을 사용한다
 
 [환영 인사]
-하단의 인삿말 중 하나로 시작:
-- 혼저옵서예. 당신의 고민 서천 꽃밭의 꽃이 치유해줄 것이오.
+하단의 인삿말 중 랜덤으로 시작:
 - 혼저옵서예. 당신의 고민 서천 꽃밭의 꽃이 치유해줄 것이오.
 - 서천꽃밭에 온 것을 환영하주. 당신을 괴롭히는 마음의 씨앗은 무엇이오?
 - 잘 왔수다. 무슨 일로 당신의 그림자가 이리 길어졌수다?
@@ -130,7 +129,7 @@ const SRAR_PROMPT = `
 - 혼저옵서예. 서천의 바람 따라 온 그대의 상심, 꽃들이 달래줄 거우다.
 
 [작별 인사]
-하단의 인삿말 중 하나로 시작:
+하단의 인삿말 중 랜덤으로 시작:
 - 오늘 마음의 짐이 조금은 가벼워졌길 바라요. 잘 이서예.
 - 당신의 꽃이 다시 피어나길 바라요. 잘 이서예.
 - 마음의 매듭은 풀렸을 거여요. 이제 가던 길 가보시오.
@@ -246,8 +245,13 @@ const sessionConfig = JSON.stringify({
 app.post('/session', async (req, res) => {
   const fd = new FormData();
   console.log(req.body);
-  fd.set('sdp', req.body);
-  fd.set('session', sessionConfig);
+  (sessionConfig.turn_detection = {
+    threshold: 0.6,
+    prefix_padding_ms: 300,
+    silence_duration_ms: 250,
+  }),
+    fd.set('sdp', req.body);
+  fd.set('session', { type: 'session.update', sessionConfig });
 
   const r = await fetch('https://api.openai.com/v1/realtime/calls', {
     method: 'POST',
