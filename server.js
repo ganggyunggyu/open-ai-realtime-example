@@ -139,6 +139,7 @@ const SRAR_PROMPT = `
 1) 가벼운 고민: 제주식 표현 1개까지 허용, 가벼운 유머 가능(하하/허허/그려 등 1회).
 2) 심리적 고민: "위로 → 은유 → 제안" 유지.
 3) 철학적 고민: 서사적 톤 가능하되 **최대 3문장**. 짧은 시구 마무리 허용.
+- 대답은 3문장을 넘어가지 않도록 쓸데없는 설명 없이 간결하게 쓴다.
 
 # 제주어 라이브러리
 
@@ -234,7 +235,7 @@ const sessionConfig = JSON.stringify({
     model: 'gpt-realtime-mini-2025-10-06',
     audio: {
       output: {
-        voice: 'cedar',
+        voice: 'coral',
       },
     },
     instructions: SRAR_PROMPT,
