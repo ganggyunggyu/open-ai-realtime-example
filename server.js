@@ -235,7 +235,7 @@ const sessionConfig = JSON.stringify({
     model: 'gpt-realtime-mini-2025-10-06',
     audio: {
       output: {
-        voice: 'coral',
+        voice: 'alloy',
       },
     },
     instructions: SRAR_PROMPT,
