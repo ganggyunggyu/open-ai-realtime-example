@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import logo from '/assets/openai-logomark.svg';
 import EventLog from './EventLog';
 import SessionControls from './SessionControls';
@@ -39,94 +40,109 @@ export default function App() {
   };
 
   async function startSession() {
-    // Get a session token for OpenAI Realtime API
-    const tokenResponse = await fetch('/token');
-    const data = await tokenResponse.json();
-    const EPHEMERAL_KEY = data.value;
+    try {
+      // Get a session token for OpenAI Realtime API
+      const tokenResponse = await fetch('/token');
+      const data = await tokenResponse.json();
+      const EPHEMERAL_KEY = data.value;
 
-    // Create a peer connection
-    const pc = new RTCPeerConnection();
+      // Create a peer connection
+      const pc = new RTCPeerConnection();
 
-    // Set up to play remote audio from the model
-    audioElement.current = document.createElement('audio');
-    audioElement.current.autoplay = true;
-    pc.ontrack = (e) => (audioElement.current.srcObject = e.streams[0]);
+      // Set up to play remote audio from the model
+      audioElement.current = document.createElement('audio');
+      audioElement.current.autoplay = true;
+      pc.ontrack = (e) => (audioElement.current.srcObject = e.streams[0]);
 
-    // Add local audio track for microphone input in the browser
-    const ms = await navigator.mediaDevices.getUserMedia({
-      audio: true,
-    });
-    pc.addTrack(ms.getTracks()[0]);
+      // Add local audio track for microphone input in the browser
+      const ms = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+      });
+      pc.addTrack(ms.getTracks()[0]);
 
-    // Set up data channel for sending and receiving events
-    const dc = pc.createDataChannel('oai-events');
-    dataChannelRef.current = dc;
-    setDataChannel(dc);
+      // Set up data channel for sending and receiving events
+      const dc = pc.createDataChannel('oai-events');
+      dataChannelRef.current = dc;
+      setDataChannel(dc);
 
-    // Start the session using the Session Description Protocol (SDP)
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
+      // Start the session using the Session Description Protocol (SDP)
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
 
-    const baseUrl = 'https://api.openai.com/v1/realtime/calls';
-    const model = 'gpt-realtime-mini-2025-10-06';
-    const sdpResponse = await fetch(`${baseUrl}?model=${model}`, {
-      method: 'POST',
-      body: offer.sdp,
-      headers: {
-        Authorization: `Bearer ${EPHEMERAL_KEY}`,
-        'Content-Type': 'application/sdp',
-      },
-    });
+      const baseUrl = 'https://api.openai.com/v1/realtime/calls';
+      const model = 'gpt-realtime-mini-2025-10-06';
+      const sdpResponse = await fetch(`${baseUrl}?model=${model}`, {
+        method: 'POST',
+        body: offer.sdp,
+        headers: {
+          Authorization: `Bearer ${EPHEMERAL_KEY}`,
+          'Content-Type': 'application/sdp',
+        },
+      });
 
-    const sdp = await sdpResponse.text();
-    const answer = { type: 'answer', sdp };
-    await pc.setRemoteDescription(answer);
+      const sdp = await sdpResponse.text();
+      const answer = { type: 'answer', sdp };
+      await pc.setRemoteDescription(answer);
 
-    // 연결 상태 모니터링 - 자동 재연결
-    pc.addEventListener('connectionstatechange', () => {
-      console.log('[CONNECTION] 연결 상태:', pc.connectionState);
+      // 연결 상태 모니터링 - 자동 재연결
+      pc.addEventListener('connectionstatechange', () => {
+        console.log('[CONNECTION] 연결 상태:', pc.connectionState);
 
-      if (
-        (pc.connectionState === 'failed' ||
-          pc.connectionState === 'disconnected') &&
-        !manualDisconnect.current &&
-        reconnectAttempts.current < MAX_RECONNECT_ATTEMPTS
-      ) {
-        console.log(
-          `[RECONNECT] 재연결 시도 ${
-            reconnectAttempts.current + 1
-          }/${MAX_RECONNECT_ATTEMPTS}`
-        );
-        reconnectAttempts.current += 1;
+        if (
+          (pc.connectionState === 'failed' ||
+            pc.connectionState === 'disconnected') &&
+          !manualDisconnect.current &&
+          reconnectAttempts.current < MAX_RECONNECT_ATTEMPTS
+        ) {
+          console.log(
+            `[RECONNECT] 재연결 시도 ${
+              reconnectAttempts.current + 1
+            }/${MAX_RECONNECT_ATTEMPTS}`
+          );
+          reconnectAttempts.current += 1;
 
-        // 기존 연결 정리
-        if (peerConnection.current) {
-          peerConnection.current.close();
+          // 기존 연결 정리
+          if (peerConnection.current) {
+            peerConnection.current.close();
+          }
+          if (dataChannelRef.current) {
+            dataChannelRef.current.close();
+          }
+
+          // 재연결 (3초 후)
+          setTimeout(() => {
+            startSession();
+          }, 3000);
+        } else if (reconnectAttempts.current >= MAX_RECONNECT_ATTEMPTS) {
+          console.error('[ERROR] 재연결 최대 시도 횟수 초과');
         }
-        if (dataChannelRef.current) {
-          dataChannelRef.current.close();
-        }
+      });
 
-        // 재연결 (3초 후)
-        setTimeout(() => {
-          startSession();
-        }, 3000);
-      } else if (reconnectAttempts.current >= MAX_RECONNECT_ATTEMPTS) {
-        console.error('[ERROR] 재연결 최대 시도 횟수 초과');
-      }
-    });
+      // ICE 연결 상태 모니터링
+      pc.addEventListener('iceconnectionstatechange', () => {
+        console.log('[ICE] ICE 연결 상태:', pc.iceConnectionState);
+      });
 
-    // ICE 연결 상태 모니터링
-    pc.addEventListener('iceconnectionstatechange', () => {
-      console.log('[ICE] ICE 연결 상태:', pc.iceConnectionState);
-    });
+      peerConnection.current = pc;
 
-    peerConnection.current = pc;
+      // 연결 성공 시 재연결 카운터 초기화
+      reconnectAttempts.current = 0;
+      manualDisconnect.current = false;
 
-    // 연결 성공 시 재연결 카운터 초기화
-    reconnectAttempts.current = 0;
-    manualDisconnect.current = false;
+      return true;
+    } catch (error) {
+      console.error('[ERROR] 세션 시작 실패:', error);
+      throw error;
+    }
   }
+
+  // 자동 세션 시작 (페이지 로드 시 한 번만 실행)
+  useQuery({
+    queryKey: ['session-init'],
+    queryFn: startSession,
+    staleTime: Infinity,
+    retry: false,
+  });
 
   // Stop current session, clean up peer connection and data channel
   function stopSession() {
@@ -205,7 +221,10 @@ export default function App() {
 
   // 연결 상태 변화 감지
   useEffect(() => {
-    console.log('[SESSION_STATE] 연결 상태 변화:', isSessionActive ? '연결됨' : '연결 끊김');
+    console.log(
+      '[SESSION_STATE] 연결 상태 변화:',
+      isSessionActive ? '연결됨' : '연결 끊김'
+    );
   }, [isSessionActive]);
 
   // 자동 접속/종료 스케줄링
@@ -216,7 +235,7 @@ export default function App() {
       const minute = now.getMinutes();
 
       // 08:00 자동 접속 (영업시간 시작)
-      if (hour === 7 && minute === 59 && !isSessionActive) {
+      if (hour === 9 && minute === 50 && !isSessionActive) {
         console.log('[SCHEDULE] 08:00 자동 접속 시작');
         startSession();
       }
@@ -299,7 +318,9 @@ export default function App() {
       <nav className="h-16 flex items-center px-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
         <div className="flex items-center gap-2 md:gap-4 w-full">
           <img className="w-6 h-6" src={logo} alt="logo" />
-          <h1 className="text-lg md:text-xl font-semibold dark:text-white">사라도령</h1>
+          <h1 className="text-lg md:text-xl font-semibold dark:text-white">
+            사라도령
+          </h1>
           {isSessionActive && (
             <div className="flex items-center gap-2 ml-auto">
               <div
