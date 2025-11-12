@@ -18,6 +18,20 @@ export default function App() {
   const manualDisconnect = useRef(false);
   const MAX_RECONNECT_ATTEMPTS = 5;
 
+  const getTimestamp = () => {
+    const now = new Date();
+    return now.toLocaleTimeString('ko-KR', {
+      hour12: false,
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
+  };
+
+  const logWithTime = (message, ...args) => {
+    console.log(`[${getTimestamp()}]`, message, ...args);
+  };
+
   // 다크모드 초기화 (localStorage에서 읽기)
   useEffect(() => {
     const savedDarkMode = localStorage.getItem('darkMode') === 'true';
@@ -86,7 +100,7 @@ export default function App() {
 
       // 연결 상태 모니터링 - 자동 재연결
       pc.addEventListener('connectionstatechange', () => {
-        console.log('[CONNECTION] 연결 상태:', pc.connectionState);
+        logWithTime('[CONNECTION] 연결 상태:', pc.connectionState);
 
         if (
           (pc.connectionState === 'failed' ||
@@ -94,7 +108,7 @@ export default function App() {
           !manualDisconnect.current &&
           reconnectAttempts.current < MAX_RECONNECT_ATTEMPTS
         ) {
-          console.log(
+          logWithTime(
             `[RECONNECT] 재연결 시도 ${
               reconnectAttempts.current + 1
             }/${MAX_RECONNECT_ATTEMPTS}`
@@ -114,13 +128,15 @@ export default function App() {
             startSession();
           }, 3000);
         } else if (reconnectAttempts.current >= MAX_RECONNECT_ATTEMPTS) {
-          console.error('[ERROR] 재연결 최대 시도 횟수 초과');
+          console.error(
+            `[${getTimestamp()}] [ERROR] 재연결 최대 시도 횟수 초과`
+          );
         }
       });
 
       // ICE 연결 상태 모니터링
       pc.addEventListener('iceconnectionstatechange', () => {
-        console.log('[ICE] ICE 연결 상태:', pc.iceConnectionState);
+        logWithTime('[ICE] ICE 연결 상태:', pc.iceConnectionState);
       });
 
       peerConnection.current = pc;
@@ -131,7 +147,7 @@ export default function App() {
 
       return true;
     } catch (error) {
-      console.error('[ERROR] 세션 시작 실패:', error);
+      console.error(`[${getTimestamp()}] [ERROR] 세션 시작 실패:`, error);
       throw error;
     }
   }
@@ -146,7 +162,7 @@ export default function App() {
 
   // Stop current session, clean up peer connection and data channel
   function stopSession() {
-    console.log('[DISCONNECT] 수동 종료 - 재연결 안함');
+    logWithTime('[DISCONNECT] 수동 종료 - 재연결 안함');
     manualDisconnect.current = true;
 
     if (dataChannelRef.current) {
@@ -186,7 +202,7 @@ export default function App() {
       setEvents((prev) => [message, ...prev]);
     } else {
       console.error(
-        'Failed to send message - no data channel available',
+        `[${getTimestamp()}] Failed to send message - no data channel available`,
         message
       );
     }
@@ -212,16 +228,9 @@ export default function App() {
     sendClientEvent({ type: 'response.create' });
   }
 
-  // 영업시간 체크 (08:00 ~ 18:00)
-  const isBusinessHours = () => {
-    const now = new Date();
-    const hour = now.getHours();
-    return hour >= 8 && hour < 18;
-  };
-
   // 연결 상태 변화 감지
   useEffect(() => {
-    console.log(
+    logWithTime(
       '[SESSION_STATE] 연결 상태 변화:',
       isSessionActive ? '연결됨' : '연결 끊김'
     );
@@ -236,13 +245,13 @@ export default function App() {
 
       // 08:00 자동 접속 (영업시간 시작)
       if (hour === 9 && minute === 50 && !isSessionActive) {
-        console.log('[SCHEDULE] 08:00 자동 접속 시작');
+        logWithTime('[SCHEDULE] 08:00 자동 접속 시작');
         startSession();
       }
 
       // 18:00 자동 종료 (영업시간 종료)
       if (hour === 18 && minute === 1 && isSessionActive) {
-        console.log('[SCHEDULE] 18:00 자동 종료');
+        logWithTime('[SCHEDULE] 18:00 자동 종료');
         stopSession();
       }
     };
@@ -258,13 +267,13 @@ export default function App() {
     if (dataChannel) {
       // DataChannel close 감지
       dataChannel.addEventListener('close', () => {
-        console.log('[DATACHANNEL] DataChannel closed');
+        logWithTime('[DATACHANNEL] DataChannel closed');
         setIsSessionActive(false);
       });
 
       // DataChannel error 감지
       dataChannel.addEventListener('error', (error) => {
-        console.error('[ERROR] DataChannel error:', error);
+        console.error(`[${getTimestamp()}] [ERROR] DataChannel error:`, error);
       });
 
       // Append new server events to the list
@@ -276,7 +285,7 @@ export default function App() {
 
         // AI 음성 시작 감지
         if (event.type === 'output_audio_buffer.started') {
-          console.log('[AI_START] AI 말하기 시작 - 마이크 차단');
+          logWithTime('[AI_START] AI 말하기 시작 - 마이크 차단');
           setIsAISpeaking(true);
           // 마이크 입력 차단
           if (peerConnection.current) {
@@ -290,7 +299,7 @@ export default function App() {
 
         // AI 음성 종료 감지
         if (event.type === 'output_audio_buffer.stopped') {
-          console.log('[AI_STOP] AI 말하기 종료 - 마이크 활성화');
+          logWithTime('[AI_STOP] AI 말하기 종료 - 마이크 활성화');
           setIsAISpeaking(false);
           // 마이크 입력 재활성화
           if (peerConnection.current) {
