@@ -79,6 +79,20 @@ export default function App() {
       dataChannelRef.current = dc;
       setDataChannel(dc);
 
+      // DataChannel이 열리면 음성 활성화 설정
+      dc.addEventListener('open', () => {
+        const sessionConfig = {
+          type: 'session.update',
+          session: {
+            input_audio_transcription: {
+              model: 'whisper-1',
+            },
+          },
+        };
+        dc.send(JSON.stringify(sessionConfig));
+        logWithTime('[CONFIG] 음성 활성화');
+      });
+
       // Start the session using the Session Description Protocol (SDP)
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
@@ -281,6 +295,30 @@ export default function App() {
         const event = JSON.parse(e.data);
         if (!event.timestamp) {
           event.timestamp = new Date().toLocaleTimeString();
+        }
+
+        // 음성 입력  완료 감지 - UI에 표시
+        if (
+          event.type === 'conversation.item.input_audio_transcription.completed'
+        ) {
+          logWithTime('[USER_VOICE] 음성 입력 :', event.transcript);
+          // 사용자 음성 메시지를 이벤트 리스트에 추가
+          const userVoiceEvent = {
+            type: 'conversation.item.create',
+            event_id: crypto.randomUUID(),
+            timestamp: new Date().toLocaleTimeString(),
+            item: {
+              type: 'message',
+              role: 'user',
+              content: [
+                {
+                  type: 'input_audio',
+                  transcript: event.transcript,
+                },
+              ],
+            },
+          };
+          setEvents((prev) => [userVoiceEvent, ...prev]);
         }
 
         // AI 음성 시작 감지
