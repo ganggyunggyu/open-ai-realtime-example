@@ -258,7 +258,7 @@ export default function App() {
       const minute = now.getMinutes();
 
       // 08:00 자동 접속 (영업시간 시작)
-      if (hour === 9 && minute === 50 && !isSessionActive) {
+      if (hour === 8 && minute === 50 && !isSessionActive) {
         logWithTime('[SCHEDULE] 08:00 자동 접속 시작');
         startSession();
       }
