@@ -258,14 +258,14 @@ export default function App() {
       const minute = now.getMinutes();
 
       // 08:00 자동 접속 (영업시간 시작)
-      if (hour === 8 && minute === 0 && !isSessionActive) {
-        logWithTime('[SCHEDULE] 08:00 자동 접속 시작');
+      if (hour === 8 && minute === 50 && !isSessionActive) {
+        logWithTime('[SCHEDULE] 08:50 자동 접속 시작');
         startSession();
       }
 
       // 18:00 자동 종료 (영업시간 종료)
-      if (hour === 18 && minute === 1 && isSessionActive) {
-        logWithTime('[SCHEDULE] 18:00 자동 종료');
+      if (hour === 17 && minute === 50 && isSessionActive) {
+        logWithTime('[SCHEDULE] 17:50 자동 종료');
         stopSession();
       }
     };
