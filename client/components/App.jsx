@@ -32,6 +32,7 @@ export default function App() {
     console.log(`[${getTimestamp()}]`, message, ...args);
   };
 
+  // 다크모드 초기화 (localStorage에서 읽기)asdasd
   useEffect(() => {
     const savedDarkMode = localStorage.getItem('darkMode') === 'true';
     setIsDarkMode(savedDarkMode);
@@ -40,6 +41,7 @@ export default function App() {
     }
   }, []);
 
+  // 다크모드 토글
   const toggleDarkMode = () => {
     const newDarkMode = !isDarkMode;
     setIsDarkMode(newDarkMode);
@@ -53,66 +55,31 @@ export default function App() {
 
   async function startSession() {
     try {
+      // Get a session token for OpenAI Realtime API
       const tokenResponse = await fetch('/token');
       const data = await tokenResponse.json();
       const EPHEMERAL_KEY = data.value;
 
+      // Create a peer connection
       const pc = new RTCPeerConnection();
 
-      if (audioElement.current) {
-        audioElement.current.pause();
-        audioElement.current.srcObject = null;
-        audioElement.current.remove();
-        logWithTime('[AUDIO] 기존 오디오 element 제거');
-      }
-
+      // Set up to play remote audio from the model
       audioElement.current = document.createElement('audio');
       audioElement.current.autoplay = true;
+      pc.ontrack = (e) => (audioElement.current.srcObject = e.streams[0]);
 
-      audioElement.current.addEventListener('canplay', () => {
-        logWithTime('[AUDIO] 오디오 재생 준비 완료');
-      });
-
-      audioElement.current.addEventListener('playing', () => {
-        logWithTime('[AUDIO] 오디오 재생 시작');
-      });
-
-      audioElement.current.addEventListener('error', (e) => {
-        console.error(`[${getTimestamp()}] [AUDIO_ERROR] 오디오 재생 실패:`, e);
-      });
-
-      pc.ontrack = async (e) => {
-        logWithTime('[TRACK] 오디오 트랙 수신');
-
-        if (!audioElement.current) {
-          console.error(
-            `[${getTimestamp()}] [AUDIO_ERROR] audio element가 없음`
-          );
-          return;
-        }
-
-        audioElement.current.srcObject = e.streams[0];
-
-        try {
-          await audioElement.current.play();
-          logWithTime('[AUDIO] 오디오 재생 시작 성공');
-        } catch (error) {
-          console.error(
-            `[${getTimestamp()}] [AUDIO_ERROR] 오디오 재생 실패:`,
-            error
-          );
-        }
-      };
-
+      // Add local audio track for microphone input in the browser
       const ms = await navigator.mediaDevices.getUserMedia({
         audio: true,
       });
       pc.addTrack(ms.getTracks()[0]);
 
+      // Set up data channel for sending and receiving events
       const dc = pc.createDataChannel('oai-events');
       dataChannelRef.current = dc;
       setDataChannel(dc);
 
+      // DataChannel이 열리면 음성 활성화 설정
       dc.addEventListener('open', () => {
         const sessionConfig = {
           type: 'session.update',
@@ -120,18 +87,13 @@ export default function App() {
             input_audio_transcription: {
               model: 'whisper-1',
             },
-            turn_detection: {
-              type: 'server_vad',
-              threshold: 0.1,
-              prefix_padding_ms: 100,
-              silence_duration_ms: 100,
-            },
           },
         };
         dc.send(JSON.stringify(sessionConfig));
-        logWithTime('[CONFIG] 음성 활성화 + VAD 설정 (침묵 1초)');
+        logWithTime('[CONFIG] 음성 활성화');
       });
 
+      // Start the session using the Session Description Protocol (SDP)
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
 
@@ -150,6 +112,7 @@ export default function App() {
       const answer = { type: 'answer', sdp };
       await pc.setRemoteDescription(answer);
 
+      // 연결 상태 모니터링 - 자동 재연결
       pc.addEventListener('connectionstatechange', () => {
         logWithTime('[CONNECTION] 연결 상태:', pc.connectionState);
 
@@ -166,6 +129,7 @@ export default function App() {
           );
           reconnectAttempts.current += 1;
 
+          // 기존 연결 정리
           if (peerConnection.current) {
             peerConnection.current.close();
           }
@@ -173,6 +137,7 @@ export default function App() {
             dataChannelRef.current.close();
           }
 
+          // 재연결 (3초 후)
           setTimeout(() => {
             startSession();
           }, 3000);
@@ -183,12 +148,14 @@ export default function App() {
         }
       });
 
+      // ICE 연결 상태 모니터링
       pc.addEventListener('iceconnectionstatechange', () => {
         logWithTime('[ICE] ICE 연결 상태:', pc.iceConnectionState);
       });
 
       peerConnection.current = pc;
 
+      // 연결 성공 시 재연결 카운터 초기화
       reconnectAttempts.current = 0;
       manualDisconnect.current = false;
 
@@ -199,6 +166,7 @@ export default function App() {
     }
   }
 
+  // 자동 세션 시작 (페이지 로드 시 한 번만 실행)
   useQuery({
     queryKey: ['session-init'],
     queryFn: startSession,
@@ -206,6 +174,7 @@ export default function App() {
     retry: false,
   });
 
+  // Stop current session, clean up peer connection and data channel
   function stopSession() {
     logWithTime('[DISCONNECT] 수동 종료 - 재연결 안함');
     manualDisconnect.current = true;
@@ -223,14 +192,6 @@ export default function App() {
       peerConnection.current.close();
     }
 
-    if (audioElement.current) {
-      audioElement.current.pause();
-      audioElement.current.srcObject = null;
-      audioElement.current.remove();
-      audioElement.current = null;
-      logWithTime('[AUDIO] 오디오 element 정리 완료');
-    }
-
     setIsSessionActive(false);
     setIsAISpeaking(false);
     setDataChannel(null);
@@ -239,13 +200,16 @@ export default function App() {
     reconnectAttempts.current = 0;
   }
 
+  // Send a message to the model
   function sendClientEvent(message) {
     if (dataChannel) {
       const timestamp = new Date().toLocaleTimeString();
       message.event_id = message.event_id || crypto.randomUUID();
 
+      // send event before setting timestamp since the backend peer doesn't expect this field
       dataChannel.send(JSON.stringify(message));
 
+      // if guard just in case the timestamp exists by miracle
       if (!message.timestamp) {
         message.timestamp = timestamp;
       }
@@ -258,6 +222,7 @@ export default function App() {
     }
   }
 
+  // Send a text message to the model
   function sendTextMessage(message) {
     const event = {
       type: 'conversation.item.create',
@@ -277,6 +242,7 @@ export default function App() {
     sendClientEvent({ type: 'response.create' });
   }
 
+  // 연결 상태 변화 감지
   useEffect(() => {
     logWithTime(
       '[SESSION_STATE] 연결 상태 변화:',
@@ -284,132 +250,114 @@ export default function App() {
     );
   }, [isSessionActive]);
 
+  // 자동 접속/종료 스케줄링
   useEffect(() => {
     const checkSchedule = () => {
       const now = new Date();
       const hour = now.getHours();
       const minute = now.getMinutes();
 
+      // 08:00 자동 접속 (영업시간 시작)
       if (hour === 8 && minute === 50 && !isSessionActive) {
         logWithTime('[SCHEDULE] 08:50 자동 접속 시작');
         startSession();
       }
 
+      // 18:00 자동 종료 (영업시간 종료)
       if (hour === 17 && minute === 50 && isSessionActive) {
         logWithTime('[SCHEDULE] 17:50 자동 종료');
         stopSession();
       }
     };
 
+    // 1분마다 체크
     const scheduleInterval = setInterval(checkSchedule, 60000);
 
     return () => clearInterval(scheduleInterval);
   }, [isSessionActive]);
 
+  // Attach event listeners to the data channel when a new one is created
   useEffect(() => {
-    if (!dataChannel) return;
-
-    const handleClose = () => {
-      logWithTime('[DATACHANNEL] DataChannel closed');
-      setIsSessionActive(false);
-    };
-
-    const handleError = (error) => {
-      console.error(`[${getTimestamp()}] [ERROR] DataChannel error:`, error);
-    };
-
-    const handleMessage = (e) => {
-      const event = JSON.parse(e.data);
-      if (!event.timestamp) {
-        event.timestamp = new Date().toLocaleTimeString();
-      }
-
-      if (
-        event.type === 'conversation.item.input_audio_transcription.completed'
-      ) {
-        logWithTime('[USER_VOICE] 음성 입력 :', event.transcript);
-
-        const userVoiceEvent = {
-          type: 'conversation.item.create',
-          event_id: event.event_id || crypto.randomUUID(),
-          timestamp: event.timestamp,
-          item: {
-            type: 'message',
-            role: 'user',
-            content: [
-              {
-                type: 'input_audio',
-                transcript: event.transcript,
-              },
-            ],
-          },
-        };
-
-        // 디버깅: 생성된 이벤트 확인
-        logWithTime('[DEBUG] userVoiceEvent:', JSON.stringify(userVoiceEvent));
-
-        setEvents((prev) => {
-          logWithTime('[DEBUG] 이벤트 추가 전 개수:', prev.length);
-          const newEvents = [userVoiceEvent, ...prev];
-          logWithTime('[DEBUG] 이벤트 추가 후 개수:', newEvents.length);
-          return newEvents;
-        });
-        return;
-      }
-
-      if (event.type === 'output_audio_buffer.started') {
-        logWithTime('[AI_START] AI 말하기 시작 - 마이크 차단');
-        setIsAISpeaking(true);
-
-        if (peerConnection.current) {
-          peerConnection.current.getSenders().forEach((sender) => {
-            if (sender.track && sender.track.kind === 'audio') {
-              sender.track.enabled = false;
-            }
-          });
-        }
-        return;
-      }
-
-      if (event.type === 'output_audio_buffer.stopped') {
-        logWithTime('[AI_STOP] AI 말하기 종료 - 마이크 활성화');
-        setIsAISpeaking(false);
-
-        if (peerConnection.current) {
-          peerConnection.current.getSenders().forEach((sender) => {
-            if (sender.track && sender.track.kind === 'audio') {
-              sender.track.enabled = true;
-            }
-          });
-        }
-
-        return;
-      }
-
-      setEvents((prev) => {
-        if (event.event_id && prev.some((e) => e.event_id === event.event_id)) {
-          return prev;
-        }
-        return [event, ...prev];
+    if (dataChannel) {
+      // DataChannel close 감지
+      dataChannel.addEventListener('close', () => {
+        logWithTime('[DATACHANNEL] DataChannel closed');
+        setIsSessionActive(false);
       });
-    };
 
-    const handleOpen = () => {
-      setIsSessionActive(true);
-      setEvents([]);
-    };
+      // DataChannel error 감지
+      dataChannel.addEventListener('error', (error) => {
+        console.error(`[${getTimestamp()}] [ERROR] DataChannel error:`, error);
+      });
 
-    dataChannel.addEventListener('close', handleClose);
-    dataChannel.addEventListener('error', handleError);
-    dataChannel.addEventListener('message', handleMessage);
-    dataChannel.addEventListener('open', handleOpen);
+      // Append new server events to the list
+      dataChannel.addEventListener('message', (e) => {
+        const event = JSON.parse(e.data);
+        if (!event.timestamp) {
+          event.timestamp = new Date().toLocaleTimeString();
+        }
 
-    return () => {
-      dataChannel.removeEventListener('close', handleClose);
-      dataChannel.removeEventListener('error', handleError);
-      dataChannel.removeEventListener('message', handleMessage);
-      dataChannel.removeEventListener('open', handleOpen);
-    };
+        // 음성 입력  완료 감지 - UI에 표시
+        if (
+          event.type === 'conversation.item.input_audio_transcription.completed'
+        ) {
+          logWithTime('[USER_VOICE] 음성 입력 :', event.transcript);
+          // 사용자 음성 메시지를 이벤트 리스트에 추가
+          const userVoiceEvent = {
+            type: 'conversation.item.create',
+            event_id: crypto.randomUUID(),
+            timestamp: new Date().toLocaleTimeString(),
+            item: {
+              type: 'message',
+              role: 'user',
+              content: [
+                {
+                  type: 'input_audio',
+                  transcript: event.transcript,
+                },
+              ],
+            },
+          };
+          setEvents((prev) => [userVoiceEvent, ...prev]);
+        }
+
+        // AI 음성 시작 감지
+        if (event.type === 'output_audio_buffer.started') {
+          logWithTime('[AI_START] AI 말하기 시작 - 마이크 차단');
+          setIsAISpeaking(true);
+          // 마이크 입력 차단
+          if (peerConnection.current) {
+            peerConnection.current.getSenders().forEach((sender) => {
+              if (sender.track && sender.track.kind === 'audio') {
+                sender.track.enabled = false;
+              }
+            });
+          }
+        }
+
+        // AI 음성 종료 감지
+        if (event.type === 'output_audio_buffer.stopped') {
+          logWithTime('[AI_STOP] AI 말하기 종료 - 마이크 활성화');
+          setIsAISpeaking(false);
+          // 마이크 입력 재활성화
+          if (peerConnection.current) {
+            peerConnection.current.getSenders().forEach((sender) => {
+              if (sender.track && sender.track.kind === 'audio') {
+                sender.track.enabled = true;
+              }
+            });
+          }
+        }
+
+        setEvents((prev) => [event, ...prev]);
+      });
+
+      // Set session active when the data channel is opened
+      dataChannel.addEventListener('open', () => {
+        setIsSessionActive(true);
+        setEvents([]);
+      });
+    }
   }, [dataChannel]);
 
   return (
