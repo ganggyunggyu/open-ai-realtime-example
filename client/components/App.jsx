@@ -32,7 +32,7 @@ export default function App() {
     console.log(`[${getTimestamp()}]`, message, ...args);
   };
 
-  // 다크모드 초기화 (localStorage에서 읽기)
+  // 다크모드 초기화 (localStorage에서 읽기)asdasd
   useEffect(() => {
     const savedDarkMode = localStorage.getItem('darkMode') === 'true';
     setIsDarkMode(savedDarkMode);
