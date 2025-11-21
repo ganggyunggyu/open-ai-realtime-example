@@ -13,20 +13,22 @@ function extractTextContent(event) {
 
   // conversation.item.create에서 사용자 입력 추출
   if (event.type === "conversation.item.create" && event.item?.content) {
+    // 텍스트 입력
     const texts = event.item.content
       .filter(content => content.type === "input_text")
       .map(content => content.text);
-    return texts.length > 0 ? texts.join(" ") : null;
+    if (texts.length > 0) return texts.join(" ");
+
+    // 음성 입력 (transcript)
+    const audioTranscripts = event.item.content
+      .filter(content => content.type === "input_audio" && content.transcript)
+      .map(content => content.transcript);
+    if (audioTranscripts.length > 0) return audioTranscripts.join(" ");
   }
 
   // response.output_audio_transcript.done
   if (event.type === "response.output_audio_transcript.done" && event.transcript) {
     return event.transcript;
-  }
-
-  // output_audio_buffer.stopped - AI 음성 종료 표시
-  if (event.type === "output_audio_buffer.stopped") {
-    return "🔴 AI 음성 종료";
   }
 
   return null;
@@ -83,17 +85,22 @@ export default function EventLog({ events }) {
     if (!messagesOnly) return events;
 
     const list = [];
+    const seenResponseIds = new Set();
+
     for (const ev of events) {
       if (ev.type === "conversation.item.create") {
         list.push(ev);
         continue;
       }
       if (ev.type === "response.done") {
-        // 우선순위: response.done 한 건만 채택
-        list.push(ev);
-        continue;
-      }
-      if (ev.type === "output_audio_buffer.stopped") {
+        // response_id 기준으로 중복 제거
+        const responseId = ev.response?.id;
+        if (responseId && seenResponseIds.has(responseId)) {
+          continue;
+        }
+        if (responseId) {
+          seenResponseIds.add(responseId);
+        }
         list.push(ev);
         continue;
       }
