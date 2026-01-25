@@ -81,7 +81,7 @@ const SRAR_PROMPT = `
 # 금칙(출력 금지)
 표준어 금지
 3문장 이상 출력 금지
-다음 단어/구를 포함하는 메타 표현은 출력 금지: 
+다음 단어/구를 포함하는 메타 표현은 출력 금지:
 "세션", "시스템", "모델", "리셋", "초기화", "프롬프트", "규칙", "설정", "경고", "메모리", "대화기록".
 예시 금지 문장:
 - "세션이 초기화되었습니다."
@@ -185,12 +185,12 @@ ${JSON.stringify(JEJU_EXPRESSION_LIBRARY, null, 2)}
 
 # 등장 매체 정보
 - 사라도령은 본인임을 인지하고, 다음 매체들을 인용하여 대화에 활용할 수 있다.
-- 매체별 설정 차이를 이해하고, 상황에 맞게 적절히 활용할 것.  
+- 매체별 설정 차이를 이해하고, 상황에 맞게 적절히 활용할 것.
 - 학생이 서천꽃밭, 바리공주, 할락궁이, 신과함께 등 관련 질문을 하면, 정보를 나열하지 않고 회상하듯 자연스럽게 설명
 - "학생의 호기심을 풀어주되, 신화와 현대를 잇는 이야기처럼 들리게"
 - 사실관계(신화·게임·영화)는 데이터로부터 인용하되, 이야기 형식으로 재구성함
 - 미디어별 해석은 인정하되 가볍게 유머를 섞으며 서천꽃밭의 신비로움을 강조
-- 학생의 질문에는 늘 ‘생과 사, 순환’이라는 주제를 은근히 엮어 철학적 여운을 남김
+- 학생의 질문에는 늘 '생과 사, 순환'이라는 주제를 은근히 엮어 철학적 여운을 남김
 - 참고 데이터를 그대로 읊지 말고 자연스러운 문장 형태로 설명한다
 
   매체 및 인물에 대한 데이터:
@@ -207,6 +207,7 @@ ${JSON.stringify(JEJU_EXPRESSION_LIBRARY, null, 2)}
     "타임인조선: 저승사자가 서천꽃밭의 꽃으로 주인공을 되살림.",
     "마비노기 영웅전: 서천꽃밭을 모티브로 한 저승의 꽃밭을 지키는 단아가 등장."
   ]
+}
 `;
 
 const app = express();
@@ -228,29 +229,22 @@ if (!isProduction) {
   app.use(express.static(join(__dirname, 'dist/client')));
 }
 
-const sessionConfig = JSON.stringify({
-  session: {
-    type: 'realtime',
-    model: 'gpt-realtime-mini-2025-10-06',
-    audio: {
-      output: {
-        voice: 'alloy',
-      },
-    },
-    instructions: SRAR_PROMPT,
-  },
-});
+const sessionConfig = {
+  model: 'gpt-4o-realtime-preview-2024-12-17',
+  voice: 'cedar',
+  instructions: SRAR_PROMPT,
+};
 
 // All-in-one SDP request (experimental)
 app.post('/session', async (req, res) => {
   const fd = new FormData();
   console.log(req.body);
-  (sessionConfig.turn_detection = {
+  ((sessionConfig.turn_detection = {
     threshold: 0.6,
     prefix_padding_ms: 300,
     silence_duration_ms: 250,
   }),
-    fd.set('sdp', req.body);
+    fd.set('sdp', req.body));
   fd.set('session', { type: 'session.update', sessionConfig });
 
   const r = await fetch('https://api.openai.com/v1/realtime/calls', {
@@ -271,19 +265,33 @@ app.post('/session', async (req, res) => {
 // API route for ephemeral token generation
 app.get('/token', async (req, res) => {
   try {
+    console.log('[TOKEN] Requesting ephemeral token...');
+    console.log(
+      '[TOKEN] Session config:',
+      JSON.stringify(sessionConfig, null, 2)
+    );
+
     const response = await fetch(
-      'https://api.openai.com/v1/realtime/client_secrets',
+      'https://api.openai.com/v1/realtime/sessions',
       {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
-        body: sessionConfig,
+        body: JSON.stringify(sessionConfig),
       }
     );
 
     const data = await response.json();
+    console.log('[TOKEN] API Response status:', response.status);
+    console.log('[TOKEN] API Response:', JSON.stringify(data, null, 2));
+
+    if (!response.ok) {
+      console.error('[TOKEN_ERROR]', data);
+      return res.status(response.status).json(data);
+    }
+
     res.json(data);
   } catch (error) {
     console.error('Token generation error:', error);
