@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import logo from '/assets/openai-logomark.svg';
 import EventLog from './EventLog';
 import SessionControls from './SessionControls';
-import { Moon, Sun } from 'react-feather';
+import { Moon, Sun, Volume2, Wifi, WifiOff, Mic, MicOff } from 'react-feather';
 
 export default function App() {
   const [isSessionActive, setIsSessionActive] = useState(false);
@@ -11,8 +10,15 @@ export default function App() {
   const [dataChannel, setDataChannel] = useState(null);
   const [isAISpeaking, setIsAISpeaking] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [volume, setVolume] = useState(2.0);
+  const [micSensitivity, setMicSensitivity] = useState(0.99);
+  const [micLevel, setMicLevel] = useState(0);
   const peerConnection = useRef(null);
   const audioElement = useRef(null);
+  const audioContextRef = useRef(null);
+  const gainNodeRef = useRef(null);
+  const analyserRef = useRef(null);
+  const animationFrameRef = useRef(null);
   const dataChannelRef = useRef(null);
   const reconnectAttempts = useRef(0);
   const manualDisconnect = useRef(false);
@@ -32,7 +38,6 @@ export default function App() {
     console.log(`[${getTimestamp()}]`, message, ...args);
   };
 
-  // 다크모드 초기화 (localStorage에서 읽기)asdasd
   useEffect(() => {
     const savedDarkMode = localStorage.getItem('darkMode') === 'true';
     setIsDarkMode(savedDarkMode);
@@ -41,7 +46,6 @@ export default function App() {
     }
   }, []);
 
-  // 다크모드 토글
   const toggleDarkMode = () => {
     const newDarkMode = !isDarkMode;
     setIsDarkMode(newDarkMode);
@@ -55,31 +59,113 @@ export default function App() {
 
   async function startSession() {
     try {
-      // Get a session token for OpenAI Realtime API
+      logWithTime('[SESSION] 세션 시작 요청...');
+
       const tokenResponse = await fetch('/token');
       const data = await tokenResponse.json();
-      const EPHEMERAL_KEY = data.value;
 
-      // Create a peer connection
+      logWithTime('[TOKEN] 토큰 응답:', JSON.stringify(data, null, 2));
+
+      if (data.error) {
+        throw new Error(`Token error: ${data.error.message || JSON.stringify(data.error)}`);
+      }
+
+      const EPHEMERAL_KEY = data.client_secret?.value || data.value;
+
+      if (!EPHEMERAL_KEY) {
+        throw new Error('Ephemeral key not found in response');
+      }
+
+      logWithTime('[TOKEN] Ephemeral key 획득 성공');
+
       const pc = new RTCPeerConnection();
 
-      // Set up to play remote audio from the model
+      // 기존 오디오 엘리먼트 정리
+      if (audioElement.current) {
+        audioElement.current.pause();
+        audioElement.current.srcObject = null;
+        audioElement.current.remove();
+        logWithTime('[AUDIO] 기존 오디오 element 제거');
+      }
+
+      // 새 오디오 엘리먼트 생성
       audioElement.current = document.createElement('audio');
       audioElement.current.autoplay = true;
-      pc.ontrack = (e) => (audioElement.current.srcObject = e.streams[0]);
 
-      // Add local audio track for microphone input in the browser
+      // AudioContext로 볼륨 조절
+      if (!audioContextRef.current) {
+        audioContextRef.current = new AudioContext();
+      }
+
+      audioElement.current.addEventListener('canplay', () => {
+        logWithTime('[AUDIO] 오디오 재생 준비 완료');
+      });
+
+      audioElement.current.addEventListener('playing', () => {
+        logWithTime('[AUDIO] 오디오 재생 시작');
+      });
+
+      audioElement.current.addEventListener('error', (e) => {
+        console.error(`[${getTimestamp()}] [AUDIO_ERROR] 오디오 재생 실패:`, e);
+      });
+
+      pc.ontrack = async (e) => {
+        logWithTime('[TRACK] 오디오 트랙 수신');
+
+        if (!audioElement.current) {
+          console.error(`[${getTimestamp()}] [AUDIO_ERROR] audio element가 없음`);
+          return;
+        }
+
+        // AudioContext로 볼륨 조절 연결
+        if (audioContextRef.current.state === 'suspended') {
+          await audioContextRef.current.resume();
+        }
+
+        const source = audioContextRef.current.createMediaStreamSource(e.streams[0]);
+        gainNodeRef.current = audioContextRef.current.createGain();
+        gainNodeRef.current.gain.value = volume;
+        gainNodeRef.current.connect(audioContextRef.current.destination);
+        source.connect(gainNodeRef.current);
+
+        // 백업용 audio 엘리먼트도 연결 (브라우저 호환성)
+        audioElement.current.srcObject = e.streams[0];
+
+        try {
+          await audioElement.current.play();
+          // AudioContext가 제대로 작동하면 audio 엘리먼트는 음소거
+          audioElement.current.volume = 0;
+          logWithTime('[AUDIO] AudioContext로 재생 중');
+        } catch (error) {
+          console.error(`[${getTimestamp()}] [AUDIO_ERROR] 오디오 재생 실패:`, error);
+        }
+      };
+
       const ms = await navigator.mediaDevices.getUserMedia({
         audio: true,
       });
       pc.addTrack(ms.getTracks()[0]);
 
-      // Set up data channel for sending and receiving events
+      // 마이크 레벨 시각화를 위한 AnalyserNode 설정
+      const micSource = audioContextRef.current.createMediaStreamSource(ms);
+      analyserRef.current = audioContextRef.current.createAnalyser();
+      analyserRef.current.fftSize = 256;
+      micSource.connect(analyserRef.current);
+
+      const updateMicLevel = () => {
+        if (!analyserRef.current) return;
+        const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
+        analyserRef.current.getByteFrequencyData(dataArray);
+        const average = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+        setMicLevel(average / 255);
+        animationFrameRef.current = requestAnimationFrame(updateMicLevel);
+      };
+      updateMicLevel();
+
       const dc = pc.createDataChannel('oai-events');
       dataChannelRef.current = dc;
       setDataChannel(dc);
 
-      // DataChannel이 열리면 음성 활성화 설정
       dc.addEventListener('open', () => {
         const sessionConfig = {
           type: 'session.update',
@@ -87,18 +173,25 @@ export default function App() {
             input_audio_transcription: {
               model: 'whisper-1',
             },
+            turn_detection: {
+              type: 'server_vad',
+              threshold: micSensitivity,
+              prefix_padding_ms: 300,
+              silence_duration_ms: 700,
+            },
           },
         };
         dc.send(JSON.stringify(sessionConfig));
-        logWithTime('[CONFIG] 음성 활성화');
+        logWithTime('[CONFIG] 음성 활성화, 마이크 감도:', micSensitivity);
       });
 
-      // Start the session using the Session Description Protocol (SDP)
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
 
-      const baseUrl = 'https://api.openai.com/v1/realtime/calls';
-      const model = 'gpt-realtime-mini-2025-10-06';
+      logWithTime('[SDP] Offer 생성 완료, API 요청 중...');
+
+      const baseUrl = 'https://api.openai.com/v1/realtime';
+      const model = 'gpt-4o-realtime-preview-2024-12-17';
       const sdpResponse = await fetch(`${baseUrl}?model=${model}`, {
         method: 'POST',
         body: offer.sdp,
@@ -108,11 +201,28 @@ export default function App() {
         },
       });
 
+      logWithTime('[SDP] API 응답 상태:', sdpResponse.status);
+
+      if (!sdpResponse.ok) {
+        const errorText = await sdpResponse.text();
+        logWithTime('[SDP_ERROR] 응답 내용:', errorText);
+        throw new Error(`SDP API error: ${sdpResponse.status} - ${errorText}`);
+      }
+
       const sdp = await sdpResponse.text();
+
+      if (!sdp || !sdp.startsWith('v=')) {
+        logWithTime('[SDP_ERROR] 유효하지 않은 SDP 응답:', sdp.substring(0, 200));
+        throw new Error('Invalid SDP response from API');
+      }
+
+      logWithTime('[SDP] 유효한 SDP 응답 수신');
+
       const answer = { type: 'answer', sdp };
       await pc.setRemoteDescription(answer);
 
-      // 연결 상태 모니터링 - 자동 재연결
+      logWithTime('[SDP] Remote description 설정 완료');
+
       pc.addEventListener('connectionstatechange', () => {
         logWithTime('[CONNECTION] 연결 상태:', pc.connectionState);
 
@@ -129,7 +239,6 @@ export default function App() {
           );
           reconnectAttempts.current += 1;
 
-          // 기존 연결 정리
           if (peerConnection.current) {
             peerConnection.current.close();
           }
@@ -137,7 +246,6 @@ export default function App() {
             dataChannelRef.current.close();
           }
 
-          // 재연결 (3초 후)
           setTimeout(() => {
             startSession();
           }, 3000);
@@ -148,14 +256,12 @@ export default function App() {
         }
       });
 
-      // ICE 연결 상태 모니터링
       pc.addEventListener('iceconnectionstatechange', () => {
         logWithTime('[ICE] ICE 연결 상태:', pc.iceConnectionState);
       });
 
       peerConnection.current = pc;
 
-      // 연결 성공 시 재연결 카운터 초기화
       reconnectAttempts.current = 0;
       manualDisconnect.current = false;
 
@@ -166,7 +272,6 @@ export default function App() {
     }
   }
 
-  // 자동 세션 시작 (페이지 로드 시 한 번만 실행)
   useQuery({
     queryKey: ['session-init'],
     queryFn: startSession,
@@ -174,10 +279,14 @@ export default function App() {
     retry: false,
   });
 
-  // Stop current session, clean up peer connection and data channel
   function stopSession() {
     logWithTime('[DISCONNECT] 수동 종료 - 재연결 안함');
     manualDisconnect.current = true;
+
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
 
     if (dataChannelRef.current) {
       dataChannelRef.current.close();
@@ -192,24 +301,30 @@ export default function App() {
       peerConnection.current.close();
     }
 
+    if (audioElement.current) {
+      audioElement.current.pause();
+      audioElement.current.srcObject = null;
+      audioElement.current.remove();
+      audioElement.current = null;
+      logWithTime('[AUDIO] 오디오 element 정리 완료');
+    }
+
     setIsSessionActive(false);
     setIsAISpeaking(false);
+    setMicLevel(0);
     setDataChannel(null);
     dataChannelRef.current = null;
     peerConnection.current = null;
     reconnectAttempts.current = 0;
   }
 
-  // Send a message to the model
   function sendClientEvent(message) {
     if (dataChannel) {
       const timestamp = new Date().toLocaleTimeString();
       message.event_id = message.event_id || crypto.randomUUID();
 
-      // send event before setting timestamp since the backend peer doesn't expect this field
       dataChannel.send(JSON.stringify(message));
 
-      // if guard just in case the timestamp exists by miracle
       if (!message.timestamp) {
         message.timestamp = timestamp;
       }
@@ -222,7 +337,6 @@ export default function App() {
     }
   }
 
-  // Send a text message to the model
   function sendTextMessage(message) {
     const event = {
       type: 'conversation.item.create',
@@ -242,7 +356,31 @@ export default function App() {
     sendClientEvent({ type: 'response.create' });
   }
 
-  // 연결 상태 변화 감지
+  useEffect(() => {
+    if (gainNodeRef.current) {
+      gainNodeRef.current.gain.value = volume;
+    }
+  }, [volume]);
+
+  // 마이크 감도 변경 시 session.update 전송
+  useEffect(() => {
+    if (dataChannel && dataChannel.readyState === 'open') {
+      const sessionConfig = {
+        type: 'session.update',
+        session: {
+          turn_detection: {
+            type: 'server_vad',
+            threshold: micSensitivity,
+            prefix_padding_ms: 300,
+            silence_duration_ms: 700,
+          },
+        },
+      };
+      dataChannel.send(JSON.stringify(sessionConfig));
+      logWithTime('[CONFIG] 마이크 감도 변경:', micSensitivity);
+    }
+  }, [micSensitivity]);
+
   useEffect(() => {
     logWithTime(
       '[SESSION_STATE] 연결 상태 변화:',
@@ -250,59 +388,49 @@ export default function App() {
     );
   }, [isSessionActive]);
 
-  // 자동 접속/종료 스케줄링
   useEffect(() => {
     const checkSchedule = () => {
       const now = new Date();
       const hour = now.getHours();
       const minute = now.getMinutes();
 
-      // 08:00 자동 접속 (영업시간 시작)
       if (hour === 8 && minute === 50 && !isSessionActive) {
         logWithTime('[SCHEDULE] 08:50 자동 접속 시작');
         startSession();
       }
 
-      // 18:00 자동 종료 (영업시간 종료)
       if (hour === 17 && minute === 50 && isSessionActive) {
         logWithTime('[SCHEDULE] 17:50 자동 종료');
         stopSession();
       }
     };
 
-    // 1분마다 체크
     const scheduleInterval = setInterval(checkSchedule, 60000);
 
     return () => clearInterval(scheduleInterval);
   }, [isSessionActive]);
 
-  // Attach event listeners to the data channel when a new one is created
   useEffect(() => {
     if (dataChannel) {
-      // DataChannel close 감지
       dataChannel.addEventListener('close', () => {
         logWithTime('[DATACHANNEL] DataChannel closed');
         setIsSessionActive(false);
       });
 
-      // DataChannel error 감지
       dataChannel.addEventListener('error', (error) => {
         console.error(`[${getTimestamp()}] [ERROR] DataChannel error:`, error);
       });
 
-      // Append new server events to the list
       dataChannel.addEventListener('message', (e) => {
         const event = JSON.parse(e.data);
         if (!event.timestamp) {
           event.timestamp = new Date().toLocaleTimeString();
         }
 
-        // 음성 입력  완료 감지 - UI에 표시
         if (
           event.type === 'conversation.item.input_audio_transcription.completed'
         ) {
           logWithTime('[USER_VOICE] 음성 입력 :', event.transcript);
-          // 사용자 음성 메시지를 이벤트 리스트에 추가
           const userVoiceEvent = {
             type: 'conversation.item.create',
             event_id: crypto.randomUUID(),
@@ -321,11 +449,9 @@ export default function App() {
           setEvents((prev) => [userVoiceEvent, ...prev]);
         }
 
-        // AI 음성 시작 감지
         if (event.type === 'output_audio_buffer.started') {
           logWithTime('[AI_START] AI 말하기 시작 - 마이크 차단');
           setIsAISpeaking(true);
-          // 마이크 입력 차단
           if (peerConnection.current) {
             peerConnection.current.getSenders().forEach((sender) => {
               if (sender.track && sender.track.kind === 'audio') {
@@ -335,11 +461,9 @@ export default function App() {
           }
         }
 
-        // AI 음성 종료 감지
         if (event.type === 'output_audio_buffer.stopped') {
           logWithTime('[AI_STOP] AI 말하기 종료 - 마이크 활성화');
           setIsAISpeaking(false);
-          // 마이크 입력 재활성화
           if (peerConnection.current) {
             peerConnection.current.getSenders().forEach((sender) => {
               if (sender.track && sender.track.kind === 'audio') {
@@ -352,7 +476,6 @@ export default function App() {
         setEvents((prev) => [event, ...prev]);
       });
 
-      // Set session active when the data channel is opened
       dataChannel.addEventListener('open', () => {
         setIsSessionActive(true);
         setEvents([]);
@@ -361,47 +484,168 @@ export default function App() {
   }, [dataChannel]);
 
   return (
-    <>
-      <nav className="h-16 flex items-center px-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
-        <div className="flex items-center gap-2 md:gap-4 w-full">
-          <img className="w-6 h-6" src={logo} alt="logo" />
-          <h1 className="text-lg md:text-xl font-semibold dark:text-white">
-            사라도령
-          </h1>
-          {isSessionActive && (
-            <div className="flex items-center gap-2 ml-auto">
-              <div
-                className={`w-2 h-2 rounded-full ${
-                  isAISpeaking ? 'bg-red-500 animate-pulse' : 'bg-green-500'
-                }`}
-              />
-              <span className="text-xs md:text-sm text-gray-600 dark:text-gray-400">
-                {isAISpeaking ? 'AI 말하는 중...' : '대기 중'}
-              </span>
+    <div className="h-screen flex flex-col bg-[var(--color-bg)] dark:bg-[var(--color-bg)]">
+      {/* Header */}
+      <header className="glass sticky top-0 z-50 border-b border-[var(--color-gray-200)] dark:border-[var(--color-gray-700)]">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4">
+          <div className="flex items-center justify-between">
+            {/* Logo & Title */}
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl gradient-primary flex items-center justify-center shadow-md">
+                <span className="text-white text-lg font-bold">S</span>
+              </div>
+              <div>
+                <h1 className="text-lg font-semibold text-[var(--color-gray-900)] dark:text-white">
+                  사라도령
+                </h1>
+                <p className="text-xs text-[var(--color-gray-500)]">AI Voice Assistant</p>
+              </div>
             </div>
-          )}
-          <button
-            onClick={toggleDarkMode}
-            className="ml-auto p-2 rounded-lg transition-colors hover:bg-gray-100 dark:bg-gray-800 dark:hover:bg-gray-700"
-            aria-label="다크모드 토글"
-          >
-            {isDarkMode ? (
-              <Sun className="w-5 h-5 text-yellow-500" />
-            ) : (
-              <Moon className="w-5 h-5 text-gray-700 dark:text-gray-300" />
-            )}
-          </button>
+
+            {/* Status & Controls */}
+            <div className="flex items-center gap-3">
+              {/* Connection Status */}
+              <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm transition-all duration-300 ${
+                isSessionActive
+                  ? 'bg-[var(--color-success)]/10 text-[var(--color-success)]'
+                  : 'bg-[var(--color-gray-100)] dark:bg-[var(--color-gray-700)] text-[var(--color-gray-500)]'
+              }`}>
+                {isSessionActive ? (
+                  <>
+                    <Wifi size={14} />
+                    <span className="hidden sm:inline">연결됨</span>
+                  </>
+                ) : (
+                  <>
+                    <WifiOff size={14} />
+                    <span className="hidden sm:inline">연결 끊김</span>
+                  </>
+                )}
+              </div>
+
+              {/* AI Speaking Status + Mic Level */}
+              {isSessionActive && (
+                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-sm transition-all duration-300 ${
+                  isAISpeaking
+                    ? 'bg-[var(--color-primary)]/10 text-[var(--color-primary)] animate-pulse-soft'
+                    : 'bg-[var(--color-gray-100)] dark:bg-[var(--color-gray-700)] text-[var(--color-gray-500)]'
+                }`}>
+                  {isAISpeaking ? (
+                    <>
+                      <MicOff size={14} />
+                      <span className="hidden sm:inline">AI 응답 중</span>
+                    </>
+                  ) : (
+                    <>
+                      {/* Mic Level Indicator */}
+                      <div className="flex items-center gap-0.5">
+                        {[0.2, 0.4, 0.6, 0.8].map((threshold, i) => (
+                          <div
+                            key={i}
+                            className={`w-1 rounded-full transition-all duration-75 ${
+                              micLevel > threshold
+                                ? 'bg-[var(--color-success)]'
+                                : 'bg-[var(--color-gray-300)] dark:bg-[var(--color-gray-600)]'
+                            }`}
+                            style={{ height: `${8 + i * 3}px` }}
+                          />
+                        ))}
+                      </div>
+                      <span className="hidden sm:inline">대기 중</span>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* Volume Control */}
+              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--color-gray-100)] dark:bg-[var(--color-gray-700)]">
+                <Volume2 size={14} className="text-[var(--color-gray-500)]" />
+                <input
+                  type="range"
+                  min="0.5"
+                  max="3"
+                  step="0.1"
+                  value={volume}
+                  onChange={(e) => setVolume(parseFloat(e.target.value))}
+                  className="w-16 h-1 bg-[var(--color-gray-300)] dark:bg-[var(--color-gray-600)] rounded-full appearance-none cursor-pointer accent-[var(--color-primary)]"
+                />
+                <span className="text-xs text-[var(--color-gray-500)] w-8 text-right">
+                  {Math.round(volume * 100)}%
+                </span>
+              </div>
+
+              {/* Mic Sensitivity Control */}
+              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--color-gray-100)] dark:bg-[var(--color-gray-700)]">
+                <Mic size={14} className="text-[var(--color-gray-500)]" />
+                <input
+                  type="range"
+                  min="0.5"
+                  max="0.99"
+                  step="0.01"
+                  value={micSensitivity}
+                  onChange={(e) => setMicSensitivity(parseFloat(e.target.value))}
+                  className="w-16 h-1 bg-[var(--color-gray-300)] dark:bg-[var(--color-gray-600)] rounded-full appearance-none cursor-pointer accent-[var(--color-primary)]"
+                />
+                <span className="text-xs text-[var(--color-gray-500)] w-8 text-right">
+                  {Math.round((1 - micSensitivity) * 100)}%
+                </span>
+              </div>
+
+              {/* Dark Mode Toggle */}
+              <button
+                onClick={toggleDarkMode}
+                className="p-2.5 rounded-xl bg-[var(--color-gray-100)] dark:bg-[var(--color-gray-700)] hover:bg-[var(--color-gray-200)] dark:hover:bg-[var(--color-gray-600)] transition-all duration-200"
+                aria-label="다크모드 토글"
+              >
+                {isDarkMode ? (
+                  <Sun size={18} className="text-[var(--color-warning)]" />
+                ) : (
+                  <Moon size={18} className="text-[var(--color-gray-600)]" />
+                )}
+              </button>
+            </div>
+          </div>
         </div>
-      </nav>
-      <main className="flex flex-col md:flex-row h-[calc(100vh-4rem)] bg-white dark:bg-gray-900">
-        {/* 왼쪽: EventLog + Controls */}
-        <section className="flex-1 flex flex-col h-full">
+      </header>
+
+      {/* Main Content */}
+      <main className="flex-1 overflow-hidden">
+        <div className="h-full max-w-4xl mx-auto flex flex-col">
           {isSessionActive ? (
             <>
-              <section className="flex-1 px-2 md:px-4 py-2 overflow-y-auto">
+              {/* Chat Area */}
+              <section className="flex-1 overflow-y-auto px-4 sm:px-6 py-4">
                 <EventLog events={events} />
               </section>
-              <section className="h-28 md:h-32 p-2 md:p-4 border-t border-gray-200 dark:border-gray-700">
+
+              {/* Input Area */}
+              <section className="border-t border-[var(--color-gray-200)] dark:border-[var(--color-gray-700)] bg-[var(--color-bg)] dark:bg-[var(--color-bg)]">
+                <div className="px-4 sm:px-6 py-4">
+                  <SessionControls
+                    startSession={startSession}
+                    stopSession={stopSession}
+                    sendClientEvent={sendClientEvent}
+                    sendTextMessage={sendTextMessage}
+                    events={events}
+                    isSessionActive={isSessionActive}
+                    isAISpeaking={isAISpeaking}
+                  />
+                </div>
+              </section>
+            </>
+          ) : (
+            /* Disconnected State */
+            <section className="flex-1 flex items-center justify-center px-4 sm:px-6">
+              <div className="text-center animate-fade-in">
+                <div className="w-20 h-20 mx-auto mb-6 rounded-3xl gradient-primary flex items-center justify-center shadow-lg">
+                  <WifiOff size={32} className="text-white" />
+                </div>
+                <h2 className="text-2xl font-semibold text-[var(--color-gray-900)] dark:text-white mb-2">
+                  연결이 필요해요
+                </h2>
+                <p className="text-[var(--color-gray-500)] mb-8 max-w-sm mx-auto">
+                  AI 어시스턴트와 대화를 시작하려면<br />아래 버튼을 눌러주세요
+                </p>
                 <SessionControls
                   startSession={startSession}
                   stopSession={stopSession}
@@ -411,23 +655,11 @@ export default function App() {
                   isSessionActive={isSessionActive}
                   isAISpeaking={isAISpeaking}
                 />
-              </section>
-            </>
-          ) : (
-            <section className="flex items-center justify-center h-full">
-              <SessionControls
-                startSession={startSession}
-                stopSession={stopSession}
-                sendClientEvent={sendClientEvent}
-                sendTextMessage={sendTextMessage}
-                events={events}
-                isSessionActive={isSessionActive}
-                isAISpeaking={isAISpeaking}
-              />
+              </div>
             </section>
           )}
-        </section>
+        </div>
       </main>
-    </>
+    </div>
   );
 }
