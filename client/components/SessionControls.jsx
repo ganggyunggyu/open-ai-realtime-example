@@ -1,6 +1,5 @@
-import { useState } from "react";
-import { CloudLightning, CloudOff, MessageSquare } from "react-feather";
-import Button from "./Button";
+import { useState } from 'react';
+import { Zap, Send, Power, Loader } from 'react-feather';
 
 function SessionStopped({ startSession }) {
   const [isActivating, setIsActivating] = useState(false);
@@ -13,79 +12,121 @@ function SessionStopped({ startSession }) {
   }
 
   return (
-    <div className="flex items-center justify-center w-full h-full p-4">
-      <Button
-        onClick={handleStartSession}
-        className={`${isActivating ? "bg-gray-600" : "bg-red-600"} w-full md:w-auto`}
-        icon={<CloudLightning height={16} />}
-      >
-        {isActivating ? (
+    <button
+      onClick={handleStartSession}
+      disabled={isActivating}
+      className={`
+        flex items-center justify-center gap-3
+        w-full sm:w-auto px-8 py-4
+        rounded-2xl font-medium text-base
+        transition-all duration-300 transform
+        ${
+          isActivating
+            ? 'bg-[var(--color-gray-200)] dark:bg-[var(--color-gray-700)] text-[var(--color-gray-500)] cursor-not-allowed'
+            : 'gradient-primary text-white shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98]'
+        }
+      `}
+    >
+      {isActivating ? (
+        <>
+          <Loader size={20} className="animate-spin" />
           <span>연결 중...</span>
-        ) : (
-          <>
-            <span className="hidden md:inline">start session</span>
-            <span className="md:hidden">시작하기</span>
-          </>
-        )}
-      </Button>
-    </div>
+        </>
+      ) : (
+        <>
+          <Zap size={20} />
+          <span>대화 시작하기</span>
+        </>
+      )}
+    </button>
   );
 }
 
 function SessionActive({ stopSession, sendTextMessage, isAISpeaking }) {
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState('');
   const [isComposing, setIsComposing] = useState(false);
 
   function handleSendClientEvent() {
-    if (isAISpeaking) return;
+    if (isAISpeaking || !message.trim()) return;
     sendTextMessage(message);
-    setMessage("");
+    setMessage('');
   }
 
   return (
-    <div className="flex flex-col md:flex-row items-center justify-center w-full h-full gap-2 md:gap-4">
-      <input
-        onKeyDown={(e) => {
-          const composing = e.isComposing || (e.nativeEvent && e.nativeEvent.isComposing) || isComposing;
-          if (e.key === "Enter" && !e.shiftKey) {
-            e.preventDefault();
-            if (!composing && message.trim() && !isAISpeaking) {
-              handleSendClientEvent();
-            }
-          }
-        }}
-        type="text"
-        placeholder={isAISpeaking ? "AI가 말하는 중..." : "메시지 입력..."}
-        className="border border-gray-200 dark:border-gray-600 rounded-full px-4 py-2 md:py-3 flex-1 w-full text-sm md:text-base bg-white dark:bg-gray-800 dark:text-white disabled:cursor-not-allowed disabled:bg-gray-100 disabled:dark:bg-gray-700"
-        value={message}
-        onChange={(e) => setMessage(e.target.value)}
-        onCompositionStart={() => setIsComposing(true)}
-        onCompositionEnd={() => setIsComposing(false)}
-        disabled={isAISpeaking}
-      />
-      <div className="flex gap-2 w-full md:w-auto">
-        <Button
-          onClick={() => {
-            if (message.trim() && !isAISpeaking) {
-              handleSendClientEvent();
+    <div className="flex items-center gap-3">
+      {/* Input Field */}
+      <div className="flex-1 relative">
+        <input
+          onKeyDown={(e) => {
+            const composing =
+              e.isComposing ||
+              (e.nativeEvent && e.nativeEvent.isComposing) ||
+              isComposing;
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              if (!composing && message.trim() && !isAISpeaking) {
+                handleSendClientEvent();
+              }
             }
           }}
-          icon={<MessageSquare height={16} />}
-          className="bg-blue-400 flex-1 md:flex-initial text-xs md:text-sm"
+          type="text"
+          placeholder={isAISpeaking ? 'AI가 응답 중이에요...' : '메시지를 입력하세요'}
+          className={`
+            w-full px-5 py-3.5
+            rounded-2xl text-[15px]
+            bg-[var(--color-gray-100)] dark:bg-[var(--color-gray-800)]
+            text-[var(--color-gray-900)] dark:text-white
+            placeholder:text-[var(--color-gray-400)]
+            border-2 border-transparent
+            focus:border-[var(--color-primary)] focus:bg-white dark:focus:bg-[var(--color-gray-700)]
+            focus:outline-none
+            transition-all duration-200
+            disabled:opacity-50 disabled:cursor-not-allowed
+          `}
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          onCompositionStart={() => setIsComposing(true)}
+          onCompositionEnd={() => setIsComposing(false)}
           disabled={isAISpeaking}
-        >
-          <span className="hidden md:inline">send text</span>
-          <span className="md:hidden">전송</span>
-        </Button>
-        <Button
-          onClick={stopSession}
-          icon={<CloudOff height={16} />}
-          className="flex-1 md:flex-initial text-xs md:text-sm"
-        >
-          <span className="hidden md:inline">disconnect</span>
-          <span className="md:hidden">종료</span>
-        </Button>
+        />
       </div>
+
+      {/* Send Button */}
+      <button
+        onClick={() => {
+          if (message.trim() && !isAISpeaking) {
+            handleSendClientEvent();
+          }
+        }}
+        disabled={isAISpeaking || !message.trim()}
+        className={`
+          flex-shrink-0 p-3.5 rounded-2xl
+          transition-all duration-200 transform
+          ${
+            message.trim() && !isAISpeaking
+              ? 'gradient-primary text-white shadow-md hover:shadow-lg hover:scale-[1.05] active:scale-[0.95]'
+              : 'bg-[var(--color-gray-200)] dark:bg-[var(--color-gray-700)] text-[var(--color-gray-400)] cursor-not-allowed'
+          }
+        `}
+      >
+        <Send size={20} />
+      </button>
+
+      {/* Disconnect Button */}
+      <button
+        onClick={stopSession}
+        className="
+          flex-shrink-0 p-3.5 rounded-2xl
+          bg-[var(--color-gray-100)] dark:bg-[var(--color-gray-800)]
+          text-[var(--color-gray-500)]
+          hover:bg-[var(--color-error)]/10 hover:text-[var(--color-error)]
+          transition-all duration-200 transform
+          hover:scale-[1.05] active:scale-[0.95]
+        "
+        title="연결 종료"
+      >
+        <Power size={20} />
+      </button>
     </div>
   );
 }
@@ -93,24 +134,22 @@ function SessionActive({ stopSession, sendTextMessage, isAISpeaking }) {
 export default function SessionControls({
   startSession,
   stopSession,
-  sendClientEvent,
   sendTextMessage,
-  serverEvents,
   isSessionActive,
   isAISpeaking,
 }) {
   return (
-    <div className="h-full w-full">
+    <div className="w-full">
       {isSessionActive ? (
         <SessionActive
           stopSession={stopSession}
-          sendClientEvent={sendClientEvent}
           sendTextMessage={sendTextMessage}
-          serverEvents={serverEvents}
           isAISpeaking={isAISpeaking}
         />
       ) : (
-        <SessionStopped startSession={startSession} />
+        <div className="flex justify-center">
+          <SessionStopped startSession={startSession} />
+        </div>
       )}
     </div>
   );
