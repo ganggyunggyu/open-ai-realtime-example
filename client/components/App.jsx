@@ -4,14 +4,19 @@ import EventLog from './EventLog';
 import SessionControls from './SessionControls';
 import { Moon, Sun, Volume2, Wifi, WifiOff, Mic, MicOff } from 'react-feather';
 
+const DEFAULT_SPEAKER_VOLUME = 2.5;
+const DEFAULT_MIC_SENSITIVITY = 0.75;
+
 export default function App() {
   const [isSessionActive, setIsSessionActive] = useState(false);
   const [events, setEvents] = useState([]);
   const [dataChannel, setDataChannel] = useState(null);
   const [isAISpeaking, setIsAISpeaking] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [volume, setVolume] = useState(2.0);
-  const [micSensitivity, setMicSensitivity] = useState(0.99);
+  const [volume, setVolume] = useState(DEFAULT_SPEAKER_VOLUME);
+  const [micSensitivity, setMicSensitivity] = useState(
+    DEFAULT_MIC_SENSITIVITY
+  );
   const [micLevel, setMicLevel] = useState(0);
   const peerConnection = useRef(null);
   const audioElement = useRef(null);
