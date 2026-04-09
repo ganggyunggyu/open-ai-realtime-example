@@ -1,11 +1,12 @@
 import { StrictMode } from "react";
 import { renderToString } from "react-dom/server";
-import App from "./components/App";
+import Root from "@/pages/Root";
 
-export function render() {
+export function render(url = "/") {
+  const pathname = typeof url === "string" ? url.split("?")[0] : "/";
   const html = renderToString(
     <StrictMode>
-      <App />
+      <Root pathname={pathname} />
     </StrictMode>,
   );
   return { html };

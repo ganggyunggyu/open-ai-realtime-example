@@ -30,6 +30,11 @@ export default {
   },
   plugins: [react()],
   customLogger: logger,
+  resolve: {
+    alias: {
+      '@': join(__dirname, 'client'),
+    },
+  },
   server: {
     allowedHosts: [
       '.railway.app',

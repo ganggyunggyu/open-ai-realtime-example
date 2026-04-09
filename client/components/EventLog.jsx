@@ -1,131 +1,19 @@
-import { User, Cpu, ChevronDown, ChevronUp, Mic, Code, Info } from 'react-feather';
+import { User, Cpu, ChevronUp, Mic, Code, Info, Clock } from 'react-feather';
 import { useMemo, useState, useRef, useEffect } from 'react';
+import {
+  extractTextContent,
+  formatEventSummary,
+  getEventRole,
+  getRenderableMessageKey,
+  isVoiceInputEvent,
+} from '@/features/realtime/lib/event-log';
+import { cn } from '@/shared/lib/cn';
+import {
+  formatTurnLatency,
+  isTurnLatencyMeasurementComplete,
+} from '@/shared/lib/response-latency';
 
-function extractTextContent(event) {
-  if (event.type === 'response.done' && event.response?.output) {
-    const transcripts = event.response.output
-      .flatMap((item) => item.content || [])
-      .filter((content) => content.transcript)
-      .map((content) => content.transcript);
-    return transcripts.length > 0 ? transcripts.join(' ') : null;
-  }
-
-  if (event.type === 'conversation.item.create' && event.item?.content) {
-    const texts = event.item.content
-      .filter((content) => content.type === 'input_text')
-      .map((content) => content.text);
-    if (texts.length > 0) return texts.join(' ');
-
-    const audioTranscripts = event.item.content
-      .filter((content) => content.type === 'input_audio' && content.transcript)
-      .map((content) => content.transcript);
-    if (audioTranscripts.length > 0) return audioTranscripts.join(' ');
-  }
-
-  if (
-    event.type === 'response.output_audio_transcript.done' &&
-    event.transcript
-  ) {
-    return event.transcript;
-  }
-
-  return null;
-}
-
-function isVoiceInput(event) {
-  if (event.type === 'conversation.item.create' && event.item?.content) {
-    return event.item.content.some((content) => content.type === 'input_audio');
-  }
-  return false;
-}
-
-function formatEventSummary(event) {
-  const isClient = event.event_id && !event.event_id.startsWith('event_');
-  const summary = [];
-
-  if (event.type === 'response.done' && event.response) {
-    const { response } = event;
-    summary.push({ label: '상태', value: response.status === 'completed' ? '완료' : response.status });
-
-    if (response.usage) {
-      const { usage } = response;
-      summary.push({
-        label: '토큰 사용량',
-        value: `입력 ${usage.input_tokens?.toLocaleString() || 0} / 출력 ${usage.output_tokens?.toLocaleString() || 0} (총 ${usage.total_tokens?.toLocaleString() || 0})`
-      });
-
-      if (usage.input_token_details) {
-        const details = usage.input_token_details;
-        if (details.text_tokens > 0) {
-          summary.push({ label: '텍스트 토큰', value: details.text_tokens.toLocaleString() });
-        }
-        if (details.audio_tokens > 0) {
-          summary.push({ label: '오디오 토큰', value: details.audio_tokens.toLocaleString() });
-        }
-      }
-    }
-
-    if (response.audio?.output) {
-      const audio = response.audio.output;
-      summary.push({ label: '음성', value: audio.voice || '알 수 없음' });
-      if (audio.format) {
-        summary.push({ label: '오디오 형식', value: `${audio.format.type} (${(audio.format.rate / 1000).toFixed(0)}kHz)` });
-      }
-    }
-
-    if (response.output_modalities) {
-      summary.push({ label: '출력 형식', value: response.output_modalities.join(', ') });
-    }
-  }
-
-  if (event.type === 'conversation.item.create' && event.item) {
-    const { item } = event;
-    summary.push({ label: '역할', value: item.role === 'user' ? '사용자' : item.role === 'assistant' ? 'AI' : item.role });
-    summary.push({ label: '메시지 타입', value: item.type });
-
-    if (item.content) {
-      const contentTypes = item.content.map(c => {
-        if (c.type === 'input_text') return '텍스트';
-        if (c.type === 'input_audio') return '음성';
-        return c.type;
-      });
-      summary.push({ label: '입력 형식', value: contentTypes.join(', ') });
-    }
-  }
-
-  if (event.type === 'session.update' && event.session) {
-    summary.push({ label: '이벤트', value: '세션 설정 업데이트' });
-    if (event.session.input_audio_transcription) {
-      summary.push({ label: '음성 인식', value: event.session.input_audio_transcription.model || '활성화' });
-    }
-  }
-
-  if (event.type === 'output_audio_buffer.started') {
-    summary.push({ label: '이벤트', value: 'AI 음성 출력 시작' });
-  }
-
-  if (event.type === 'output_audio_buffer.stopped') {
-    summary.push({ label: '이벤트', value: 'AI 음성 출력 종료' });
-  }
-
-  if (event.type === 'conversation.item.input_audio_transcription.completed') {
-    summary.push({ label: '이벤트', value: '음성 인식 완료' });
-    if (event.transcript) {
-      summary.push({ label: '인식 결과', value: event.transcript });
-    }
-  }
-
-  if (summary.length === 0) {
-    summary.push({ label: '이벤트 타입', value: event.type });
-    if (event.event_id) {
-      summary.push({ label: '발신', value: isClient ? '클라이언트' : '서버' });
-    }
-  }
-
-  return summary;
-}
-
-function EventDetails({ event, viewMode }) {
+const EventDetails = ({ event, viewMode }) => {
   const summary = formatEventSummary(event);
 
   if (viewMode === 'summary') {
@@ -156,13 +44,20 @@ function EventDetails({ event, viewMode }) {
   }
 
   return null;
-}
+};
 
-function ChatBubble({ event, timestamp }) {
+const ChatBubble = ({ event, timestamp }) => {
   const [viewMode, setViewMode] = useState('closed');
-  const isClient = event.event_id && !event.event_id.startsWith('event_');
   const textContent = extractTextContent(event);
-  const isVoice = isVoiceInput(event);
+  const isVoice = isVoiceInputEvent(event);
+  const role = getEventRole(event);
+  const hasCompletedLatencyMeasurement = isTurnLatencyMeasurementComplete(
+    event.latencyMeasurement
+  );
+  const latencyText = formatTurnLatency(event.latencyMeasurement);
+  const isClient =
+    role === 'user' ||
+    (!role && event.event_id && !event.event_id.startsWith('event_'));
 
   if (!textContent) return null;
 
@@ -176,33 +71,31 @@ function ChatBubble({ event, timestamp }) {
     <div
       className={`flex gap-3 animate-fade-in ${isClient ? 'flex-row-reverse' : 'flex-row'}`}
     >
-      {/* Avatar */}
       <div
-        className={`flex-shrink-0 w-9 h-9 rounded-2xl flex items-center justify-center ${
+        className={cn('flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-2xl', 
           isClient
             ? 'bg-[var(--color-primary)] text-white'
             : 'bg-[var(--color-gray-100)] dark:bg-[var(--color-gray-700)] text-[var(--color-gray-600)] dark:text-[var(--color-gray-300)]'
-        }`}
+        )}
       >
         {isClient ? <User size={16} /> : <Cpu size={16} />}
       </div>
 
-      {/* Bubble */}
       <div className={`max-w-[75%] ${isClient ? 'items-end' : 'items-start'}`}>
         <div
-          className={`px-4 py-3 rounded-2xl shadow-sm ${
+          className={cn('rounded-2xl px-4 py-3 shadow-sm',
             isClient
               ? 'bg-[var(--color-primary)] text-white rounded-tr-md'
               : 'bg-[var(--color-gray-100)] dark:bg-[var(--color-gray-800)] text-[var(--color-gray-900)] dark:text-[var(--color-gray-100)] rounded-tl-md'
-          }`}
+          )}
         >
           {isVoice && (
             <div
-              className={`flex items-center gap-1.5 text-xs mb-1.5 ${
+              className={cn('mb-1.5 flex items-center gap-1.5 text-xs',
                 isClient
                   ? 'text-white/70'
                   : 'text-[var(--color-gray-500)]'
-              }`}
+              )}
             >
               <Mic size={12} />
               <span>음성 메시지</span>
@@ -213,13 +106,25 @@ function ChatBubble({ event, timestamp }) {
           </p>
         </div>
 
-        {/* Timestamp & Details Toggle */}
         <div
           className={`flex items-center gap-2 mt-1.5 text-xs text-[var(--color-gray-400)] ${
             isClient ? 'justify-end' : 'justify-start'
           }`}
         >
           <span>{timestamp}</span>
+          {hasCompletedLatencyMeasurement ? (
+            <span
+              className={cn(
+                'inline-flex items-center gap-1 rounded-full px-2 py-0.5',
+                isClient
+                  ? 'bg-[var(--color-primary)]/10 text-[var(--color-primary)]'
+                  : 'bg-[var(--color-gray-100)] text-[var(--color-gray-500)] dark:bg-[var(--color-gray-800)] dark:text-[var(--color-gray-300)]'
+              )}
+            >
+              <Clock size={11} />
+              <span>응답 시작 {latencyText}</span>
+            </span>
+          ) : null}
           <button
             onClick={cycleViewMode}
             className={`flex items-center gap-1 px-2 py-0.5 rounded-md transition-all duration-200 ${
@@ -229,34 +134,33 @@ function ChatBubble({ event, timestamp }) {
             }`}
           >
             {viewMode === 'closed' && (
-              <>
+              <div className="flex items-center gap-1">
                 <Info size={12} />
                 <span>상세</span>
-              </>
+              </div>
             )}
             {viewMode === 'summary' && (
-              <>
+              <div className="flex items-center gap-1">
                 <Code size={12} />
                 <span>코드</span>
-              </>
+              </div>
             )}
             {viewMode === 'raw' && (
-              <>
+              <div className="flex items-center gap-1">
                 <ChevronUp size={12} />
                 <span>닫기</span>
-              </>
+              </div>
             )}
           </button>
         </div>
 
-        {/* Event Details */}
         <EventDetails event={event} viewMode={viewMode} />
       </div>
     </div>
   );
-}
+};
 
-function SystemEvent({ event, timestamp }) {
+const SystemEvent = ({ event, timestamp }) => {
   const [viewMode, setViewMode] = useState('closed');
 
   const cycleViewMode = () => {
@@ -287,36 +191,45 @@ function SystemEvent({ event, timestamp }) {
       </div>
     </div>
   );
-}
+};
 
-export default function EventLog({ events }) {
+const EventLog = ({ events }) => {
   const [messagesOnly, setMessagesOnly] = useState(true);
   const containerRef = useRef(null);
+  const handleShowMessagesOnly = () => setMessagesOnly(true);
+  const handleShowAllEvents = () => setMessagesOnly(false);
 
   const filtered = useMemo(() => {
     if (!events || events.length === 0) return [];
     if (!messagesOnly) return events;
 
     const list = [];
-    const seenResponseIds = new Set();
+    const seenMessageKeys = new Set();
 
     for (const ev of events) {
-      if (ev.type === 'conversation.item.create') {
-        list.push(ev);
+      const textContent = extractTextContent(ev);
+      const role = getEventRole(ev);
+
+      if (!textContent) {
         continue;
       }
-      if (ev.type === 'response.done') {
-        const responseId = ev.response?.id;
-        if (responseId && seenResponseIds.has(responseId)) {
-          continue;
-        }
-        if (responseId) {
-          seenResponseIds.add(responseId);
-        }
-        list.push(ev);
+
+      if (role === 'user' && ev.type !== 'conversation.item.create') {
         continue;
       }
+
+      const messageKey = getRenderableMessageKey(ev);
+      if (messageKey && seenMessageKeys.has(messageKey)) {
+        continue;
+      }
+
+      if (messageKey) {
+        seenMessageKeys.add(messageKey);
+      }
+
+      list.push(ev);
     }
+
     return list;
   }, [events, messagesOnly]);
 
@@ -371,7 +284,6 @@ export default function EventLog({ events }) {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Filter Toggle */}
       <div className="flex items-center justify-between mb-4 pb-3 border-b border-[var(--color-gray-200)] dark:border-[var(--color-gray-700)]">
         <span className="text-sm font-medium text-[var(--color-gray-600)] dark:text-[var(--color-gray-400)]">
           {messagesOnly ? '대화 내역' : '전체 이벤트'}
@@ -384,7 +296,7 @@ export default function EventLog({ events }) {
                 ? 'bg-white dark:bg-[var(--color-gray-700)] text-[var(--color-gray-900)] dark:text-white shadow-sm'
                 : 'text-[var(--color-gray-500)] hover:text-[var(--color-gray-700)] dark:hover:text-[var(--color-gray-300)]'
             }`}
-            onClick={() => setMessagesOnly(true)}
+            onClick={handleShowMessagesOnly}
           >
             대화
           </button>
@@ -395,14 +307,13 @@ export default function EventLog({ events }) {
                 ? 'bg-white dark:bg-[var(--color-gray-700)] text-[var(--color-gray-900)] dark:text-white shadow-sm'
                 : 'text-[var(--color-gray-500)] hover:text-[var(--color-gray-700)] dark:hover:text-[var(--color-gray-300)]'
             }`}
-            onClick={() => setMessagesOnly(false)}
+            onClick={handleShowAllEvents}
           >
             전체
           </button>
         </div>
       </div>
 
-      {/* Messages */}
       <div
         ref={containerRef}
         className="flex-1 flex flex-col-reverse gap-4 overflow-y-auto"
@@ -425,4 +336,6 @@ export default function EventLog({ events }) {
       </div>
     </div>
   );
-}
+};
+
+export default EventLog;

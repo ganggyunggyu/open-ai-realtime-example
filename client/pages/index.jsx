@@ -1,5 +1,7 @@
-import App from "../components/App";
+import App from "@/components/App";
 
-export default function Index() {
+const Index = () => {
   return <App />;
-}
+};
+
+export default Index;

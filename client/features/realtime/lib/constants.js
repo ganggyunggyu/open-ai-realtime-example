@@ -1,0 +1,30 @@
+export const DEFAULT_SPEAKER_VOLUME = 2.5;
+export const DEFAULT_MIC_SENSITIVITY = 0.88;
+export const MIN_MIC_SENSITIVITY = 0.5;
+export const MAX_MIC_SENSITIVITY = 0.99;
+export const MAX_RECONNECT_ATTEMPTS = 5;
+
+export const MIC_SENSITIVITY_STORAGE_KEY = 'micSensitivity';
+export const VOICE_AUTO_REPLY_STORAGE_KEY = 'voiceAutoReply';
+
+export const DEFAULT_REALTIME_MODEL = 'gpt-realtime-mini';
+export const DEFAULT_REALTIME_VOICE = 'cedar';
+export const DEFAULT_TRANSCRIPTION_MODEL = 'gpt-4o-mini-transcribe';
+export const DEFAULT_TRANSCRIPTION_LANGUAGE = 'ko';
+export const DEFAULT_NOISE_REDUCTION_TYPE = 'far_field';
+export const DEFAULT_VOICE_AUTO_REPLY_ENABLED = false;
+export const TRANSCRIPTION_DUPLICATE_WINDOW_MS = 15000;
+export const MIN_TRANSCRIPT_LENGTH = 3;
+export const SOFT_SLEEP_IDLE_MS = 10 * 60 * 1000;
+export const LOCAL_SPEECH_LEVEL_THRESHOLD = 0.22;
+export const LOCAL_SPEECH_DELTA_THRESHOLD = 0.07;
+export const LOCAL_SPEECH_MIN_DURATION_MS = 900;
+export const LOCAL_SPEECH_COOLDOWN_MS = 3000;
+export const LOCAL_SPEECH_END_SILENCE_MS = 700;
+export const LOCAL_NOISE_FLOOR_ALPHA = 0.08;
+export const LOCAL_INPUT_GATE_OPEN_DELTA = 0.055;
+export const LOCAL_INPUT_GATE_CLOSE_DELTA = 0.03;
+export const LOCAL_INPUT_GATE_OPEN_LEVEL_THRESHOLD = 0.18;
+export const LOCAL_INPUT_GATE_CLOSE_LEVEL_THRESHOLD = 0.12;
+export const LOCAL_INPUT_GATE_HOLD_MS = 900;
+export const MIC_LEVEL_MULTIPLIER = 6;
