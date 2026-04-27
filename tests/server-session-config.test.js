@@ -17,7 +17,7 @@ test('server session config seeds low-latency standby defaults', () => {
   assert.match(serverSource, /silence_duration_ms: 550/);
   assert.match(serverSource, /create_response: false/);
   assert.match(serverSource, /interrupt_response: true/);
-  assert.match(serverSource, /max_response_output_tokens: 180/);
+  assert.match(serverSource, /max_output_tokens: 180/);
   assert.match(serverSource, /speed: 1\.1/);
   assert.match(serverSource, /noise_reduction:\s*\{\s*type: 'far_field'/);
 });

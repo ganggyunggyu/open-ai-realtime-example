@@ -156,8 +156,7 @@ const sessionConfig = {
   model: realtimeModel,
   instructions: SRAR_PROMPT,
   output_modalities: ['audio'],
-  max_response_output_tokens: 180,
-  temperature: 0.8,
+  max_output_tokens: 180,
   audio: {
     input: {
       noise_reduction: {
