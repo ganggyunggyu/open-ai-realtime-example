@@ -68,7 +68,31 @@ test('opens the gate for soft near-field speech in a quiet room', () => {
   });
 
   assert.equal(decision.gateShouldBeOpen, true);
+  assert.equal(decision.hasGateSignal, true);
+  assert.equal(decision.hasSoftSpeechSignal, true);
   assert.equal(decision.shouldTrackSpeech, true);
+});
+
+test('holds the gate open after a soft near-field speech frame', () => {
+  const softSpeechDecision = getInputGateDecision({
+    ambientNoiseFloor: 0.13,
+    isGateOpen: false,
+    lastGateSignalAt: 0,
+    level: 0.19,
+    now: 5_000,
+  });
+  const holdDecision = getInputGateDecision({
+    ambientNoiseFloor: 0.13,
+    isGateOpen: true,
+    lastGateSignalAt: 5_000,
+    level: 0.165,
+    now: 5_350,
+  });
+
+  assert.equal(softSpeechDecision.hasFreshGateSignal, false);
+  assert.equal(softSpeechDecision.hasGateSignal, true);
+  assert.equal(holdDecision.gateShouldBeOpen, true);
+  assert.equal(holdDecision.hasFreshGateSignal, false);
 });
 
 test('briefly holds the gate open across a short pause', () => {

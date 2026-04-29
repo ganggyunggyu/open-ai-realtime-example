@@ -460,7 +460,7 @@ export const useRealtimeSession = (options = {}) => {
           noiseFloorLevel: normalizedAmbientNoiseFloor,
         });
 
-      if (gateDecision.hasFreshGateSignal) {
+      if (gateDecision.hasGateSignal) {
         lastInputGateSignalAtRef.current = now;
       }
 
