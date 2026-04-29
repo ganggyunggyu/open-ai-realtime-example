@@ -1,5 +1,5 @@
 export const DEFAULT_SPEAKER_VOLUME = 2.5;
-export const DEFAULT_MIC_SENSITIVITY = 0.88;
+export const DEFAULT_MIC_SENSITIVITY = 0.7;
 export const MIN_MIC_SENSITIVITY = 0.5;
 export const MAX_MIC_SENSITIVITY = 0.99;
 export const MAX_RECONNECT_ATTEMPTS = 5;
@@ -7,7 +7,6 @@ export const MAX_RECONNECT_ATTEMPTS = 5;
 export const MIC_SENSITIVITY_STORAGE_KEY = 'micSensitivity';
 export const VOICE_AUTO_REPLY_STORAGE_KEY = 'voiceAutoReply';
 
-export const DEFAULT_REALTIME_MODEL = 'gpt-realtime-mini';
 export const DEFAULT_REALTIME_VOICE = 'cedar';
 export const DEFAULT_TRANSCRIPTION_MODEL = 'gpt-4o-mini-transcribe';
 export const DEFAULT_TRANSCRIPTION_LANGUAGE = 'ko';

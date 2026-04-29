@@ -1,7 +1,4 @@
-import {
-  buildInputAudioBufferCommitEvent,
-  buildResponseCreateEvent,
-} from './session-config.js';
+import { buildResponseCreateEvent } from './session-config.js';
 
 const AUTO_TURN_STATE_IDLE = 'idle';
 const AUTO_TURN_STATE_AWAITING_RESPONSE_COMPLETION =
@@ -84,9 +81,6 @@ export const buildQualifiedTurnHandoff = (options = {}) => {
 
   return {
     ...responseDecision,
-    handoffEvents: [
-      buildInputAudioBufferCommitEvent(),
-      responseDecision.event,
-    ],
+    handoffEvents: [responseDecision.event],
   };
 };

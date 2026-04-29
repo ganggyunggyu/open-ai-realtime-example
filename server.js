@@ -125,13 +125,13 @@ app.use(express.text());
 const port = process.env.PORT || 2000;
 const apiKey = process.env.OPENAI_API_KEY;
 const isProduction = process.env.NODE_ENV === 'production';
-const realtimeModel = process.env.OPENAI_REALTIME_MODEL || 'gpt-realtime-mini';
+const realtimeModel = process.env.OPENAI_REALTIME_MODEL || 'gpt-realtime';
 const realtimeVoice = process.env.OPENAI_REALTIME_VOICE || 'cedar';
 const INITIAL_TRANSCRIPTION_PROMPT =
   'Primary language is Korean. Transcribe only clearly audible speech. If the audio is only noise or unclear, return an empty transcript instead of guessing.';
 const INITIAL_SESSION_TURN_DETECTION = {
   type: 'server_vad',
-  threshold: 0.88,
+  threshold: 0.7,
   prefix_padding_ms: 300,
   silence_duration_ms: 550,
   create_response: false,

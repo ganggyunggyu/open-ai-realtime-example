@@ -47,10 +47,6 @@ export const buildResponseCreateEvent = () => ({
   },
 });
 
-export const buildInputAudioBufferCommitEvent = () => ({
-  type: 'input_audio_buffer.commit',
-});
-
 export const buildTextMessageEvent = (message) => ({
   type: 'conversation.item.create',
   item: {

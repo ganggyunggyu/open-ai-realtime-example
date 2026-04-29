@@ -10,7 +10,6 @@ import {
 } from '@/features/realtime/lib/audio';
 import {
   DEFAULT_MIC_SENSITIVITY,
-  DEFAULT_REALTIME_MODEL,
   DEFAULT_SPEAKER_VOLUME,
   DEFAULT_VOICE_AUTO_REPLY_ENABLED,
   LOCAL_NOISE_FLOOR_ALPHA,
@@ -63,10 +62,16 @@ import {
 } from '@/features/realtime/lib/utterance-qualification';
 import { qualifyUserDirectedSpeech } from '@/features/realtime/lib/user-directed-speech';
 
+const LEGACY_DEFAULT_MIC_SENSITIVITY = 0.88;
+
 const getValidatedMicSensitivity = (value) => {
   const parsedValue = Number.parseFloat(value);
 
   if (Number.isNaN(parsedValue)) {
+    return DEFAULT_MIC_SENSITIVITY;
+  }
+
+  if (parsedValue === LEGACY_DEFAULT_MIC_SENSITIVITY) {
     return DEFAULT_MIC_SENSITIVITY;
   }
 
@@ -645,21 +650,7 @@ export const useRealtimeSession = (options = {}) => {
       sourceEventId: event.event_id,
     });
 
-    const [commitEvent, responseEvent] = qualifiedTurnHandoff.handoffEvents;
-    const didCommitInputAudio = sendClientEvent(commitEvent, {
-      shouldLog: false,
-    });
-
-    if (!didCommitInputAudio) {
-      pendingTurnLatencyMeasurementRef.current = null;
-      updateVoiceDisplayEventLatency({
-        latencyMeasurement: null,
-        sourceEventId: event.event_id,
-      });
-      resetAutoTurnState();
-      return;
-    }
-
+    const [responseEvent] = qualifiedTurnHandoff.handoffEvents;
     const didSendAutoTurnResponse = sendClientEvent(responseEvent, {
       measurementMeta: qualifiedTurnHandoff.measurementMeta,
       shouldLog: false,
@@ -801,7 +792,6 @@ export const useRealtimeSession = (options = {}) => {
           throw new Error('Ephemeral key not found in response');
         }
 
-        const model = data.model || DEFAULT_REALTIME_MODEL;
         const peerConnection = new RTCPeerConnection();
         const outputAudioContext = getAudioContext();
         const outputAudioElement = createAudioElement();

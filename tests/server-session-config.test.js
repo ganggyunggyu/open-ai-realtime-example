@@ -12,8 +12,12 @@ const serverSource = fs.readFileSync(
 );
 
 test('server session config seeds low-latency standby defaults', () => {
+  assert.match(
+    serverSource,
+    /process\.env\.OPENAI_REALTIME_MODEL \|\| 'gpt-realtime'/
+  );
   assert.match(serverSource, /type: 'server_vad'/);
-  assert.match(serverSource, /threshold: 0\.88/);
+  assert.match(serverSource, /threshold: 0\.7/);
   assert.match(serverSource, /silence_duration_ms: 550/);
   assert.match(serverSource, /create_response: false/);
   assert.match(serverSource, /interrupt_response: true/);
