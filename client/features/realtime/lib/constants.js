@@ -1,5 +1,5 @@
 export const DEFAULT_SPEAKER_VOLUME = 2.5;
-export const DEFAULT_MIC_SENSITIVITY = 0.7;
+export const DEFAULT_MIC_SENSITIVITY = 0.88;
 export const MIN_MIC_SENSITIVITY = 0.5;
 export const MAX_MIC_SENSITIVITY = 0.99;
 export const MAX_RECONNECT_ATTEMPTS = 5;

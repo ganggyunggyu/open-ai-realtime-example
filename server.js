@@ -131,7 +131,7 @@ const INITIAL_TRANSCRIPTION_PROMPT =
   'Primary language is Korean. Transcribe only clearly audible speech. If the audio is only noise or unclear, return an empty transcript instead of guessing.';
 const INITIAL_SESSION_TURN_DETECTION = {
   type: 'server_vad',
-  threshold: 0.7,
+  threshold: 0.88,
   prefix_padding_ms: 300,
   silence_duration_ms: 550,
   create_response: false,

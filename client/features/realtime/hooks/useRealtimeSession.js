@@ -62,7 +62,7 @@ import {
 } from '@/features/realtime/lib/utterance-qualification';
 import { qualifyUserDirectedSpeech } from '@/features/realtime/lib/user-directed-speech';
 
-const LEGACY_DEFAULT_MIC_SENSITIVITY = 0.88;
+const ROLLED_BACK_DEFAULT_MIC_SENSITIVITY = 0.7;
 
 const getValidatedMicSensitivity = (value) => {
   const parsedValue = Number.parseFloat(value);
@@ -71,7 +71,7 @@ const getValidatedMicSensitivity = (value) => {
     return DEFAULT_MIC_SENSITIVITY;
   }
 
-  if (parsedValue === LEGACY_DEFAULT_MIC_SENSITIVITY) {
+  if (parsedValue === ROLLED_BACK_DEFAULT_MIC_SENSITIVITY) {
     return DEFAULT_MIC_SENSITIVITY;
   }
 
@@ -460,7 +460,7 @@ export const useRealtimeSession = (options = {}) => {
           noiseFloorLevel: normalizedAmbientNoiseFloor,
         });
 
-      if (gateDecision.hasGateSignal) {
+      if (gateDecision.hasFreshGateSignal) {
         lastInputGateSignalAtRef.current = now;
       }
 
@@ -650,7 +650,21 @@ export const useRealtimeSession = (options = {}) => {
       sourceEventId: event.event_id,
     });
 
-    const [responseEvent] = qualifiedTurnHandoff.handoffEvents;
+    const [commitEvent, responseEvent] = qualifiedTurnHandoff.handoffEvents;
+    const didCommitInputAudio = sendClientEvent(commitEvent, {
+      shouldLog: false,
+    });
+
+    if (!didCommitInputAudio) {
+      pendingTurnLatencyMeasurementRef.current = null;
+      updateVoiceDisplayEventLatency({
+        latencyMeasurement: null,
+        sourceEventId: event.event_id,
+      });
+      resetAutoTurnState();
+      return;
+    }
+
     const didSendAutoTurnResponse = sendClientEvent(responseEvent, {
       measurementMeta: qualifiedTurnHandoff.measurementMeta,
       shouldLog: false,

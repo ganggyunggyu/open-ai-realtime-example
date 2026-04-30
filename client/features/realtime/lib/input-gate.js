@@ -143,8 +143,6 @@ export const getInputGateDecision = ({
     gateShouldBeOpen:
       hasFreshGateSignal || hasSoftSpeechSignal || shouldHoldGate,
     hasFreshGateSignal,
-    hasGateSignal: hasFreshGateSignal || hasSoftSpeechSignal,
-    hasSoftSpeechSignal,
     openDeltaThreshold: roundLevel(openDeltaThreshold),
     openLevelThreshold: roundLevel(openLevelThreshold),
     softOpenLevelThreshold: roundLevel(softOpenLevelThreshold),

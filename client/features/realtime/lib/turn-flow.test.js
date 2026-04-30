@@ -66,12 +66,15 @@ test('creates a response.create event for qualified utterances by default', () =
   });
 });
 
-test('creates an immediate response handoff for server-vad committed utterances', () => {
+test('creates an immediate commit and response handoff for qualified utterances', () => {
   const handoffDecision = buildQualifiedTurnHandoff({
     utteranceDecision: buildQualifiedDecision(),
   });
 
   assert.deepEqual(handoffDecision?.handoffEvents, [
+    {
+      type: 'input_audio_buffer.commit',
+    },
     {
       type: 'response.create',
       response: {
