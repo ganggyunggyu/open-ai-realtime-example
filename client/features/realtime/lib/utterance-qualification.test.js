@@ -145,7 +145,7 @@ test('accepts close-range speech based on microphone sensitivity', () => {
   });
 
   assert.equal(decision.isQualified, true);
-  assert.equal(decision.reason, 'sensitivity_audio_signal');
+  assert.equal(decision.reason, 'realtime_transcription_completed');
 });
 
 test('accepts a short assistant greeting with near-field audio', () => {
@@ -156,7 +156,7 @@ test('accepts a short assistant greeting with near-field audio', () => {
   });
 
   assert.equal(decision.isQualified, true);
-  assert.equal(decision.reason, 'sensitivity_audio_signal');
+  assert.equal(decision.reason, 'realtime_transcription_completed');
   assert.equal(decision.transcriptSignals.hasGreetingIntent, true);
 });
 
@@ -168,7 +168,7 @@ test('does not drop direct commands solely because transcription confidence is l
   });
 
   assert.equal(decision.isQualified, true);
-  assert.equal(decision.reason, 'sensitivity_audio_signal');
+  assert.equal(decision.reason, 'realtime_transcription_completed');
 });
 
 test('accepts empty transcripts when microphone sensitivity qualifies', () => {
@@ -179,7 +179,7 @@ test('accepts empty transcripts when microphone sensitivity qualifies', () => {
   });
 
   assert.equal(decision.isQualified, true);
-  assert.equal(decision.reason, 'sensitivity_audio_signal');
+  assert.equal(decision.reason, 'realtime_transcription_completed');
 });
 
 test('treats short soft local speech as a valid wake signal', () => {
@@ -222,7 +222,7 @@ test('accepts short filler transcripts when microphone sensitivity qualifies', (
   });
 
   assert.equal(decision.isQualified, true);
-  assert.equal(decision.reason, 'sensitivity_audio_signal');
+  assert.equal(decision.reason, 'realtime_transcription_completed');
 });
 
 test('accepts short laughter transcripts when microphone sensitivity qualifies', () => {
@@ -237,7 +237,7 @@ test('accepts short laughter transcripts when microphone sensitivity qualifies',
   });
 
   assert.equal(decision.isQualified, true);
-  assert.equal(decision.reason, 'sensitivity_audio_signal');
+  assert.equal(decision.reason, 'realtime_transcription_completed');
   assert.equal(decision.transcriptSignals.isBriefReaction, true);
 });
 
@@ -253,7 +253,7 @@ test('accepts short reaction questions when microphone sensitivity qualifies', (
   });
 
   assert.equal(decision.isQualified, true);
-  assert.equal(decision.reason, 'sensitivity_audio_signal');
+  assert.equal(decision.reason, 'realtime_transcription_completed');
   assert.equal(decision.transcriptSignals.isBriefReaction, true);
 });
 
@@ -265,24 +265,20 @@ test('keeps longer intentional speech even when it starts with laughter', () => 
   });
 
   assert.equal(decision.isQualified, true);
-  assert.equal(decision.reason, 'sensitivity_audio_signal');
+  assert.equal(decision.reason, 'realtime_transcription_completed');
   assert.equal(decision.transcriptSignals.isBriefReaction, false);
 });
 
-test('rejects audio below the sensitivity threshold regardless of transcript text', () => {
+test('accepts transcription completion even without local audio support', () => {
   const decision = qualifyUtterance({
-    activity: buildAudioActivity({
-      averageSpeechLevel: 0.11,
-      durationMs: 1_400,
-      noiseFloorLevel: 0.08,
-      peakLevel: 0.14,
-    }),
-    event: buildTranscriptionEvent('지금 광고 끝나고 다음 경기 시작합니다'),
+    activity: null,
+    event: buildTranscriptionEvent('안녕, 살아두령?'),
     now: 10_000,
   });
 
-  assert.equal(decision.isQualified, false);
-  assert.equal(decision.reason, 'audio_below_sensitivity_threshold');
+  assert.equal(decision.isQualified, true);
+  assert.equal(decision.reason, 'realtime_transcription_completed');
+  assert.equal(decision.audioSignals.isMissing, true);
 });
 
 test('marks sustained compressed audio as likely continuous playback', () => {
@@ -298,7 +294,7 @@ test('marks sustained compressed audio as likely continuous playback', () => {
   });
 
   assert.equal(decision.isQualified, true);
-  assert.equal(decision.reason, 'sensitivity_audio_signal');
+  assert.equal(decision.reason, 'realtime_transcription_completed');
   assert.equal(decision.audioSignals.isLikelyContinuousPlayback, true);
   assert.ok(decision.audioSignals.speechLevelConsistency >= 0.8);
 });
@@ -311,5 +307,5 @@ test('accepts duplicate transcripts when microphone sensitivity qualifies', () =
   });
 
   assert.equal(decision.isQualified, true);
-  assert.equal(decision.reason, 'sensitivity_audio_signal');
+  assert.equal(decision.reason, 'realtime_transcription_completed');
 });

@@ -464,23 +464,6 @@ const getAudioSignals = (activity, now) => {
   };
 };
 
-const hasSensitivityQualifiedAudio = (audioSignals) =>
-  audioSignals.hasNearFieldSignal &&
-  audioSignals.speechDurationMs >= MIN_LOCAL_SPEECH_SHORT_WAKE_DURATION_MS;
-
-const createRejectedDecision = ({
-  audioSignals,
-  reason,
-  transcript,
-  transcriptSignals,
-}) => ({
-  audioSignals,
-  isQualified: false,
-  reason,
-  transcript,
-  transcriptSignals,
-});
-
 const createAcceptedDecision = ({
   audioSignals,
   reason,
@@ -503,27 +486,9 @@ export const qualifyUtterance = ({
   const transcriptSignals = getTranscriptSignals(transcript);
   const audioSignals = getAudioSignals(activity, now);
 
-  if (audioSignals.isMissing || audioSignals.isStale) {
-    return createRejectedDecision({
-      audioSignals,
-      reason: 'missing_recent_audio_activity',
-      transcript,
-      transcriptSignals,
-    });
-  }
-
-  if (!hasSensitivityQualifiedAudio(audioSignals)) {
-    return createRejectedDecision({
-      audioSignals,
-      reason: 'audio_below_sensitivity_threshold',
-      transcript,
-      transcriptSignals,
-    });
-  }
-
   return createAcceptedDecision({
     audioSignals,
-    reason: 'sensitivity_audio_signal',
+    reason: 'realtime_transcription_completed',
     transcript,
     transcriptSignals,
   });

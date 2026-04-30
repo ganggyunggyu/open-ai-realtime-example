@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { qualifyUserDirectedSpeech } from './user-directed-speech.js';
 
-test('leaves sensitivity-qualified utterances unfiltered by transcript intent', () => {
+test('leaves realtime transcription completions unfiltered by transcript intent', () => {
   const utteranceDecision = {
     audioSignals: {
       averageDelta: 0.18,
@@ -10,7 +10,7 @@ test('leaves sensitivity-qualified utterances unfiltered by transcript intent', 
       speechDurationMs: 920,
     },
     isQualified: true,
-    reason: 'sensitivity_audio_signal',
+    reason: 'realtime_transcription_completed',
     transcript: '우리 지금 몇 시에 만나?',
   };
 
@@ -21,10 +21,10 @@ test('leaves sensitivity-qualified utterances unfiltered by transcript intent', 
 
   assert.equal(decision, utteranceDecision);
   assert.equal(decision.isQualified, true);
-  assert.equal(decision.reason, 'sensitivity_audio_signal');
+  assert.equal(decision.reason, 'realtime_transcription_completed');
 });
 
-test('preserves audio-threshold rejections without transcript checks', () => {
+test('preserves upstream rejections without adding transcript checks', () => {
   const utteranceDecision = {
     audioSignals: {
       averageDelta: 0.01,
@@ -32,7 +32,7 @@ test('preserves audio-threshold rejections without transcript checks', () => {
       speechDurationMs: 120,
     },
     isQualified: false,
-    reason: 'audio_below_sensitivity_threshold',
+    reason: 'upstream_rejection',
     transcript: '안녕하세요',
   };
 
@@ -43,5 +43,5 @@ test('preserves audio-threshold rejections without transcript checks', () => {
 
   assert.equal(decision, utteranceDecision);
   assert.equal(decision.isQualified, false);
-  assert.equal(decision.reason, 'audio_below_sensitivity_threshold');
+  assert.equal(decision.reason, 'upstream_rejection');
 });
