@@ -644,21 +644,7 @@ export const useRealtimeSession = (options = {}) => {
       sourceEventId: event.event_id,
     });
 
-    const [commitEvent, responseEvent] = qualifiedTurnHandoff.handoffEvents;
-    const didCommitInputAudio = sendClientEvent(commitEvent, {
-      shouldLog: false,
-    });
-
-    if (!didCommitInputAudio) {
-      pendingTurnLatencyMeasurementRef.current = null;
-      updateVoiceDisplayEventLatency({
-        latencyMeasurement: null,
-        sourceEventId: event.event_id,
-      });
-      resetAutoTurnState();
-      return;
-    }
-
+    const [responseEvent] = qualifiedTurnHandoff.handoffEvents;
     const didSendAutoTurnResponse = sendClientEvent(responseEvent, {
       measurementMeta: qualifiedTurnHandoff.measurementMeta,
       shouldLog: false,
