@@ -76,7 +76,7 @@ export const shouldAcceptTranscript = (
   }
 
   const averageLogprob = getAverageLogprob(event);
-  if (averageLogprob !== null && averageLogprob < -0.9) {
+  if (averageLogprob !== null && averageLogprob < -2.5) {
     return false;
   }
 

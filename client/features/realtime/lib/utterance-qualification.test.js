@@ -148,6 +148,28 @@ test('accepts a close-range direct command without a wake word', () => {
   assert.equal(decision.reason, 'direct_intent_with_near_field_audio');
 });
 
+test('keeps moderately low confidence direct commands out of the basic filter', () => {
+  const decision = qualifyUtterance({
+    activity: buildAudioActivity(),
+    event: buildTranscriptionEvent('오늘 일정 정리해줘', -1.35),
+    now: 10_000,
+  });
+
+  assert.equal(decision.isQualified, true);
+  assert.equal(decision.reason, 'direct_intent_with_near_field_audio');
+});
+
+test('rejects extremely low confidence transcripts at the basic filter', () => {
+  const decision = qualifyUtterance({
+    activity: buildAudioActivity(),
+    event: buildTranscriptionEvent('오늘 일정 정리해줘', -2.75),
+    now: 10_000,
+  });
+
+  assert.equal(decision.isQualified, false);
+  assert.equal(decision.reason, 'basic_transcript_filter');
+});
+
 test('treats short soft local speech as a valid wake signal', () => {
   const shouldWake = shouldWakeFromLocalSpeech({
     activity: buildAudioActivity({
