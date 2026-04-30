@@ -11,7 +11,7 @@ import {
 
 const buildQualifiedDecision = (overrides = {}) => ({
   isQualified: true,
-  reason: 'direct_intent_with_near_field_audio',
+  reason: 'sensitivity_audio_signal',
   transcript: '오늘 일정 정리해줘',
   ...overrides,
 });
@@ -20,7 +20,7 @@ test('does not create a model response for rejected utterances', () => {
   const responseDecision = buildQualifiedTurnResponse({
     utteranceDecision: buildQualifiedDecision({
       isQualified: false,
-      reason: 'filler_or_chatter',
+      reason: 'audio_below_sensitivity_threshold',
       transcript: '와',
     }),
   });
@@ -32,7 +32,7 @@ test('does not hand off nearby conversation rejection into response generation',
   const handoffDecision = buildQualifiedTurnHandoff({
     utteranceDecision: buildQualifiedDecision({
       isQualified: false,
-      reason: 'nearby_conversation_not_device_directed',
+      reason: 'audio_below_sensitivity_threshold',
       transcript: '엄마, 오늘 일정 정리해줘',
     }),
   });
@@ -54,7 +54,7 @@ test('creates a response.create event for qualified utterances by default', () =
       },
     },
     measurementMeta: {
-      reason: 'direct_intent_with_near_field_audio',
+      reason: 'sensitivity_audio_signal',
       transcript: '오늘 일정 정리해줘',
       trigger: 'qualified_utterance_default',
     },

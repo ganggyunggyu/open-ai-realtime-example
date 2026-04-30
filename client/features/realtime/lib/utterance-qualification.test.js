@@ -137,7 +137,7 @@ test('keeps a short quiet utterance active across a natural pause before finaliz
   );
 });
 
-test('accepts a close-range direct command without a wake word', () => {
+test('accepts close-range speech based on microphone sensitivity', () => {
   const decision = qualifyUtterance({
     activity: buildAudioActivity(),
     event: buildTranscriptionEvent('오늘 일정 정리해줘'),
@@ -145,7 +145,7 @@ test('accepts a close-range direct command without a wake word', () => {
   });
 
   assert.equal(decision.isQualified, true);
-  assert.equal(decision.reason, 'direct_intent_with_near_field_audio');
+  assert.equal(decision.reason, 'sensitivity_audio_signal');
 });
 
 test('accepts a short assistant greeting with near-field audio', () => {
@@ -156,7 +156,7 @@ test('accepts a short assistant greeting with near-field audio', () => {
   });
 
   assert.equal(decision.isQualified, true);
-  assert.equal(decision.reason, 'direct_intent_with_near_field_audio');
+  assert.equal(decision.reason, 'sensitivity_audio_signal');
   assert.equal(decision.transcriptSignals.hasGreetingIntent, true);
 });
 
@@ -168,18 +168,18 @@ test('does not drop direct commands solely because transcription confidence is l
   });
 
   assert.equal(decision.isQualified, true);
-  assert.equal(decision.reason, 'direct_intent_with_near_field_audio');
+  assert.equal(decision.reason, 'sensitivity_audio_signal');
 });
 
-test('rejects empty transcripts at the basic filter', () => {
+test('accepts empty transcripts when microphone sensitivity qualifies', () => {
   const decision = qualifyUtterance({
     activity: buildAudioActivity(),
     event: buildTranscriptionEvent(''),
     now: 10_000,
   });
 
-  assert.equal(decision.isQualified, false);
-  assert.equal(decision.reason, 'basic_transcript_filter');
+  assert.equal(decision.isQualified, true);
+  assert.equal(decision.reason, 'sensitivity_audio_signal');
 });
 
 test('treats short soft local speech as a valid wake signal', () => {
@@ -210,7 +210,7 @@ test('treats short strong local speech as a valid wake signal', () => {
   assert.equal(shouldWake, true);
 });
 
-test('rejects short filler or exclamation transcripts', () => {
+test('accepts short filler transcripts when microphone sensitivity qualifies', () => {
   const decision = qualifyUtterance({
     activity: buildAudioActivity({
       averageSpeechLevel: 0.18,
@@ -221,11 +221,11 @@ test('rejects short filler or exclamation transcripts', () => {
     now: 10_000,
   });
 
-  assert.equal(decision.isQualified, false);
-  assert.equal(decision.reason, 'filler_or_chatter');
+  assert.equal(decision.isQualified, true);
+  assert.equal(decision.reason, 'sensitivity_audio_signal');
 });
 
-test('rejects short laughter bursts before response creation', () => {
+test('accepts short laughter transcripts when microphone sensitivity qualifies', () => {
   const decision = qualifyUtterance({
     activity: buildAudioActivity({
       averageSpeechLevel: 0.2,
@@ -236,12 +236,12 @@ test('rejects short laughter bursts before response creation', () => {
     now: 10_000,
   });
 
-  assert.equal(decision.isQualified, false);
-  assert.equal(decision.reason, 'brief_reaction');
+  assert.equal(decision.isQualified, true);
+  assert.equal(decision.reason, 'sensitivity_audio_signal');
   assert.equal(decision.transcriptSignals.isBriefReaction, true);
 });
 
-test('rejects short reaction questions that look like brief non-commands', () => {
+test('accepts short reaction questions when microphone sensitivity qualifies', () => {
   const decision = qualifyUtterance({
     activity: buildAudioActivity({
       averageSpeechLevel: 0.22,
@@ -252,8 +252,8 @@ test('rejects short reaction questions that look like brief non-commands', () =>
     now: 10_000,
   });
 
-  assert.equal(decision.isQualified, false);
-  assert.equal(decision.reason, 'brief_reaction');
+  assert.equal(decision.isQualified, true);
+  assert.equal(decision.reason, 'sensitivity_audio_signal');
   assert.equal(decision.transcriptSignals.isBriefReaction, true);
 });
 
@@ -265,11 +265,11 @@ test('keeps longer intentional speech even when it starts with laughter', () => 
   });
 
   assert.equal(decision.isQualified, true);
-  assert.equal(decision.reason, 'direct_intent_with_near_field_audio');
+  assert.equal(decision.reason, 'sensitivity_audio_signal');
   assert.equal(decision.transcriptSignals.isBriefReaction, false);
 });
 
-test('rejects weak far-field speech without direct intent', () => {
+test('rejects audio below the sensitivity threshold regardless of transcript text', () => {
   const decision = qualifyUtterance({
     activity: buildAudioActivity({
       averageSpeechLevel: 0.11,
@@ -282,7 +282,7 @@ test('rejects weak far-field speech without direct intent', () => {
   });
 
   assert.equal(decision.isQualified, false);
-  assert.equal(decision.reason, 'far_field_audio');
+  assert.equal(decision.reason, 'audio_below_sensitivity_threshold');
 });
 
 test('marks sustained compressed audio as likely continuous playback', () => {
@@ -298,23 +298,18 @@ test('marks sustained compressed audio as likely continuous playback', () => {
   });
 
   assert.equal(decision.isQualified, true);
-  assert.equal(decision.reason, 'direct_intent_with_near_field_audio');
+  assert.equal(decision.reason, 'sensitivity_audio_signal');
   assert.equal(decision.audioSignals.isLikelyContinuousPlayback, true);
   assert.ok(decision.audioSignals.speechLevelConsistency >= 0.8);
 });
 
-test('rejects duplicate transcripts inside the recent window', () => {
-  const previousTranscriptState = {
-    timestamp: 9_500,
-    transcript: '오늘 일정 정리해줘',
-  };
+test('accepts duplicate transcripts when microphone sensitivity qualifies', () => {
   const decision = qualifyUtterance({
     activity: buildAudioActivity(),
     event: buildTranscriptionEvent('오늘  일정   정리해줘'),
     now: 10_000,
-    previousTranscriptState,
   });
 
-  assert.equal(decision.isQualified, false);
-  assert.equal(decision.reason, 'basic_transcript_filter');
+  assert.equal(decision.isQualified, true);
+  assert.equal(decision.reason, 'sensitivity_audio_signal');
 });

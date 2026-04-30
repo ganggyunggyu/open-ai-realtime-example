@@ -149,7 +149,6 @@ export const useRealtimeSession = (options = {}) => {
   const manualDisconnectRef = useRef(false);
   const suppressReconnectRef = useRef(false);
   const hasLoadedPreferencesRef = useRef(false);
-  const lastAcceptedTranscriptRef = useRef(null);
   const lastVoiceActivityAtRef = useRef(Date.now());
   const lastLocalSpeechDetectedAtRef = useRef(0);
   const lastAssistantActivityAtRef = useRef(null);
@@ -575,7 +574,6 @@ export const useRealtimeSession = (options = {}) => {
       activity: recentAudioActivity,
       event,
       now: observedAtMs,
-      previousTranscriptState: lastAcceptedTranscriptRef.current,
     });
     const userDirectedDecision = qualifyUserDirectedSpeech({
       now: observedAtMs,
@@ -593,10 +591,6 @@ export const useRealtimeSession = (options = {}) => {
 
     const { transcript } = userDirectedDecision;
 
-    lastAcceptedTranscriptRef.current = {
-      transcript,
-      timestamp: observedAtMs,
-    };
     setLatestAcceptedTranscript({
       audioSignals: userDirectedDecision.audioSignals,
       eventId: event.event_id,

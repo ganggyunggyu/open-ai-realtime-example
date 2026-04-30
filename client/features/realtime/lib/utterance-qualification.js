@@ -2,7 +2,7 @@ import {
   LOCAL_SPEECH_END_SILENCE_MS,
   LOCAL_SPEECH_LEVEL_THRESHOLD,
 } from './constants.js';
-import { getTranscriptText, shouldAcceptTranscript } from './session-events.js';
+import { getTranscriptText } from './session-events.js';
 
 const MIN_DIRECT_INTENT_AUDIO_DURATION_MS = 320;
 const MIN_STRONG_SHORT_INTENT_AUDIO_DURATION_MS = 520;
@@ -464,6 +464,10 @@ const getAudioSignals = (activity, now) => {
   };
 };
 
+const hasSensitivityQualifiedAudio = (audioSignals) =>
+  audioSignals.hasNearFieldSignal &&
+  audioSignals.speechDurationMs >= MIN_LOCAL_SPEECH_SHORT_WAKE_DURATION_MS;
+
 const createRejectedDecision = ({
   audioSignals,
   reason,
@@ -494,135 +498,32 @@ export const qualifyUtterance = ({
   activity,
   event,
   now = Date.now(),
-  previousTranscriptState,
 }) => {
   const transcript = getTranscriptText(event);
   const transcriptSignals = getTranscriptSignals(transcript);
   const audioSignals = getAudioSignals(activity, now);
 
-  if (!shouldAcceptTranscript(event, previousTranscriptState, now)) {
-    return createRejectedDecision({
-      audioSignals,
-      reason: 'basic_transcript_filter',
-      transcript,
-      transcriptSignals,
-    });
-  }
-
-  if (!transcriptSignals.hasLettersOrNumbers) {
-    return createRejectedDecision({
-      audioSignals,
-      reason: 'non_linguistic_transcript',
-      transcript,
-      transcriptSignals,
-    });
-  }
-
-  if (transcriptSignals.isBriefReaction) {
-    return createRejectedDecision({
-      audioSignals,
-      reason: 'brief_reaction',
-      transcript,
-      transcriptSignals,
-    });
-  }
-
-  if (
-    !transcriptSignals.hasDirectIntent &&
-    (transcriptSignals.isShortFiller ||
-      transcriptSignals.isHumanChatter ||
-      transcriptSignals.isContinuationResponse)
-  ) {
-    return createRejectedDecision({
-      audioSignals,
-      reason: 'filler_or_chatter',
-      transcript,
-      transcriptSignals,
-    });
-  }
-
   if (audioSignals.isMissing || audioSignals.isStale) {
-    return transcriptSignals.hasDirectIntent
-      ? createRejectedDecision({
-          audioSignals,
-          reason: 'direct_intent_but_missing_audio_support',
-          transcript,
-          transcriptSignals,
-        })
-      : createRejectedDecision({
-          audioSignals,
-          reason: 'missing_recent_audio_activity',
-          transcript,
-          transcriptSignals,
-        });
-  }
-
-  if (transcriptSignals.hasDirectIntent) {
-    if (
-      audioSignals.hasDirectIntentSignal ||
-      audioSignals.hasStrongShortIntentSignal
-    ) {
-      return createAcceptedDecision({
-        audioSignals,
-        reason: 'direct_intent_with_near_field_audio',
-        transcript,
-        transcriptSignals,
-      });
-    }
-
-    if (
-      transcriptSignals.isVeryLongTranscript &&
-      audioSignals.hasNearFieldSignal
-    ) {
-      return createAcceptedDecision({
-        audioSignals,
-        reason: 'long_direct_intent_with_recent_audio',
-        transcript,
-        transcriptSignals,
-      });
-    }
-
     return createRejectedDecision({
       audioSignals,
-      reason: 'direct_intent_but_audio_weak',
+      reason: 'missing_recent_audio_activity',
       transcript,
       transcriptSignals,
     });
   }
 
-  if (!audioSignals.hasNearFieldSignal) {
+  if (!hasSensitivityQualifiedAudio(audioSignals)) {
     return createRejectedDecision({
       audioSignals,
-      reason: 'far_field_audio',
+      reason: 'audio_below_sensitivity_threshold',
       transcript,
       transcriptSignals,
     });
   }
 
-  if (!transcriptSignals.isLongFormTranscript) {
-    return createRejectedDecision({
-      audioSignals,
-      reason: 'short_non_intent_transcript',
-      transcript,
-      transcriptSignals,
-    });
-  }
-
-  if (
-    audioSignals.hasLongFormSignal ||
-    transcriptSignals.isVeryLongTranscript
-  ) {
-    return createAcceptedDecision({
-      audioSignals,
-      reason: 'long_form_near_field_speech',
-      transcript,
-      transcriptSignals,
-    });
-  }
-
-  return createRejectedDecision({
+  return createAcceptedDecision({
     audioSignals,
-    reason: 'non_intent_or_ambient',
+    reason: 'sensitivity_audio_signal',
     transcript,
     transcriptSignals,
   });
