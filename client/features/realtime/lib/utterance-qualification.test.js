@@ -148,6 +148,18 @@ test('accepts a close-range direct command without a wake word', () => {
   assert.equal(decision.reason, 'direct_intent_with_near_field_audio');
 });
 
+test('accepts a short assistant greeting with near-field audio', () => {
+  const decision = qualifyUtterance({
+    activity: buildAudioActivity(),
+    event: buildTranscriptionEvent('안녕하세요, 도령.'),
+    now: 10_000,
+  });
+
+  assert.equal(decision.isQualified, true);
+  assert.equal(decision.reason, 'direct_intent_with_near_field_audio');
+  assert.equal(decision.transcriptSignals.hasGreetingIntent, true);
+});
+
 test('does not drop direct commands solely because transcription confidence is low', () => {
   const decision = qualifyUtterance({
     activity: buildAudioActivity(),

@@ -81,6 +81,42 @@ test('keeps explicit device-addressed requests qualified after nearby conversati
   assert.equal(decision.reason, 'device_directed_request');
 });
 
+test('accepts assistant greetings even when transcription uses a nearby alias', () => {
+  const decision = qualifyUserDirectedSpeech({
+    now: 10_000,
+    utteranceDecision: buildUtteranceDecision({
+      transcript: '안녕하세요, 도영?',
+      transcriptSignals: {
+        hasDirectIntent: true,
+        hasGreetingIntent: true,
+        isContinuationResponse: false,
+        isLongFormTranscript: false,
+      },
+    }),
+  });
+
+  assert.equal(decision.isQualified, true);
+  assert.equal(decision.reason, 'device_directed_greeting');
+});
+
+test('accepts standalone greetings as a device-directed opening', () => {
+  const decision = qualifyUserDirectedSpeech({
+    now: 10_000,
+    utteranceDecision: buildUtteranceDecision({
+      transcript: '안녕하세요',
+      transcriptSignals: {
+        hasDirectIntent: true,
+        hasGreetingIntent: true,
+        isContinuationResponse: false,
+        isLongFormTranscript: false,
+      },
+    }),
+  });
+
+  assert.equal(decision.isQualified, true);
+  assert.equal(decision.reason, 'device_directed_greeting');
+});
+
 test('rejects schedule chatter that lacks a device-directed query or request', () => {
   const decision = qualifyUserDirectedSpeech({
     now: 10_000,

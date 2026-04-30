@@ -77,6 +77,11 @@ const CONTINUATION_PATTERNS = [
   /^(yeah|yep|nope|okay|ok|sure|right)(\s|$)/i,
 ];
 
+const GREETING_INTENT_PATTERNS = [
+  /^(안녕|안녕하세요|안녕하십니까|반가워|반갑습니다)(?:[\s,!.?]+(?:챗\s*gpt|챗지피티|chatgpt|지피티|gpt|assistant|어시스턴트|비서|컴퓨터|냥냥돌쇠|돌쇠|도령|도영)(?:야|아|님)?)?[\s,!.?]*$/i,
+  /^(hello|hi|hey)(?:[\s,!.?]+(?:chatgpt|gpt|assistant|computer))?[\s,!.?]*$/i,
+];
+
 const LOCAL_SPEECH_START_THRESHOLD_RATIO = 0.72;
 const LOCAL_SPEECH_CONTINUE_THRESHOLD_RATIO = 0.6;
 const MIN_LOCAL_SPEECH_START_DELTA = 0.024;
@@ -156,9 +161,12 @@ const getTranscriptSignals = (transcript) => {
   const compactTextTranscript = textOnlyTranscript.replace(/\s+/g, '');
   const wordCount = getWordCount(normalizedTranscript);
   const hasLettersOrNumbers = LETTER_OR_NUMBER_PATTERN.test(normalizedTranscript);
-  const hasDirectIntent = DIRECT_INTENT_PATTERNS.some((pattern) =>
+  const hasGreetingIntent = GREETING_INTENT_PATTERNS.some((pattern) =>
     pattern.test(normalizedTranscript)
   );
+  const hasDirectIntent =
+    hasGreetingIntent ||
+    DIRECT_INTENT_PATTERNS.some((pattern) => pattern.test(normalizedTranscript));
   const isShortFiller = SHORT_FILLER_TRANSCRIPTS.has(normalizedTranscript);
   const isHumanChatter =
     !hasDirectIntent &&
@@ -186,6 +194,7 @@ const getTranscriptSignals = (transcript) => {
   return {
     compactTranscript,
     hasDirectIntent,
+    hasGreetingIntent,
     hasLettersOrNumbers,
     isBriefReaction,
     isContinuationResponse,

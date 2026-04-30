@@ -32,7 +32,13 @@ const FOLLOW_UP_PATTERNS = [
 ];
 
 const EXPLICIT_DEVICE_ADDRESS_PATTERNS = [
-  /^(챗\s*gpt|챗지피티|chatgpt|지피티|gpt|assistant|어시스턴트|비서|컴퓨터)(야|아|님)?([,\s!?]|$)/i,
+  /^(챗\s*gpt|챗지피티|chatgpt|지피티|gpt|assistant|어시스턴트|비서|컴퓨터|냥냥돌쇠|돌쇠|도령|도영)(야|아|님)?([,\s!?]|$)/i,
+];
+
+const GREETING_DEVICE_CUE_PATTERNS = [
+  /^(안녕|안녕하세요|안녕하십니까|반가워|반갑습니다)[\s,!.?]*$/i,
+  /^(안녕|안녕하세요|안녕하십니까|반가워|반갑습니다)[\s,!.?]+(챗\s*gpt|챗지피티|chatgpt|지피티|gpt|assistant|어시스턴트|비서|컴퓨터|냥냥돌쇠|돌쇠|도령|도영)(야|아|님)?[\s,!.?]*$/i,
+  /^(hello|hi|hey)(?:[\s,!.?]+(?:chatgpt|gpt|assistant|computer))?[\s,!.?]*$/i,
 ];
 
 const HUMAN_ADDRESS_PATTERNS = [
@@ -103,6 +109,10 @@ export const qualifyUserDirectedSpeech = ({
     EXPLICIT_DEVICE_ADDRESS_PATTERNS,
     normalizedTranscript
   );
+  const hasGreetingDeviceCue = matchesAnyPattern(
+    GREETING_DEVICE_CUE_PATTERNS,
+    normalizedTranscript
+  );
   const hasContextualFollowUp = matchesAnyPattern(
     FOLLOW_UP_PATTERNS,
     normalizedTranscript
@@ -126,12 +136,14 @@ export const qualifyUserDirectedSpeech = ({
     hasDirectDeviceQuery ||
     hasDeviceTaskCue ||
     hasStrongDeviceRequest ||
+    hasGreetingDeviceCue ||
     isSupportedFollowUp;
   const signals = {
     hasContextualFollowUp,
     hasDeviceTaskCue,
     hasDirectDeviceQuery,
     hasExplicitDeviceAddress,
+    hasGreetingDeviceCue,
     hasGenericDeviceRequest,
     hasHumanAddressCue,
     hasHumanCoordinationCue,
@@ -181,6 +193,15 @@ export const qualifyUserDirectedSpeech = ({
     return createDecision({
       isQualified: false,
       reason: 'nearby_conversation_not_device_directed',
+      signals,
+      utteranceDecision,
+    });
+  }
+
+  if (hasGreetingDeviceCue) {
+    return createDecision({
+      isQualified: true,
+      reason: 'device_directed_greeting',
       signals,
       utteranceDecision,
     });
