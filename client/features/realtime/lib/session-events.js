@@ -43,23 +43,6 @@ export const createVoiceDisplayEvent = (transcript, options = {}) => ({
 
 export const getTranscriptText = (event) => event?.transcript?.trim() || '';
 
-export const getAverageLogprob = (event) => {
-  if (!Array.isArray(event?.logprobs) || event.logprobs.length === 0) {
-    return null;
-  }
-
-  const validScores = event.logprobs
-    .map((item) => item?.logprob)
-    .filter((score) => typeof score === 'number');
-
-  if (validScores.length === 0) {
-    return null;
-  }
-
-  const total = validScores.reduce((sum, score) => sum + score, 0);
-  return total / validScores.length;
-};
-
 export const shouldAcceptTranscript = (
   event,
   previousTranscriptState,
@@ -72,11 +55,6 @@ export const shouldAcceptTranscript = (
   }
 
   if (!/[A-Za-z0-9\u00C0-\u024F\u0400-\u04FF\u3040-\u30FF\u3400-\u9FBF\uAC00-\uD7A3]/.test(transcript)) {
-    return false;
-  }
-
-  const averageLogprob = getAverageLogprob(event);
-  if (averageLogprob !== null && averageLogprob < -2.5) {
     return false;
   }
 
